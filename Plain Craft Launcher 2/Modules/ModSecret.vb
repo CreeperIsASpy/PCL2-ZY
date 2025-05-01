@@ -681,6 +681,8 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         End If
     End Sub
     Public Sub UpdateStart(VersionStr As String, Slient As Boolean, Optional ReceivedKey As String = Nothing, Optional ForceValidated As Boolean = False)
+        OpenWebsite("https://github.com/ruattd/PCL2-CE-Colorful")
+        Exit Sub
         Dim DlLink As String = Nothing
         DlLink = GetUpdateServerSource()
         Dim DlTargetPath As String = Path + "PCL\Plain Craft Launcher 2.exe"
