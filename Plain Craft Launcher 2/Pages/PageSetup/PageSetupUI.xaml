@@ -9,7 +9,7 @@
             <local:MyCard Margin="0,15" Title="基础" x:Name="CardLauncher">
                 <Grid Margin="25,40,25,10">
                     <StackPanel>
-                        <Grid Margin="0,0,0,6">
+                        <Grid Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" SharedSizeGroup="Name1" />
                                 <ColumnDefinition Width="1*" />
@@ -77,27 +77,24 @@
                             </StackPanel>
                         </Border>
                         <local:MyCheckBox Text="打开启动器时显示 PCL 图标" Margin="-1,0,0,7" Height="22" x:Name="CheckLauncherLogo" Tag="UiLauncherLogo" />
+                        <local:MyCheckBox Text="显示社区版提示" Margin="-1,0,0,7" Height="22" x:Name="CheckLauncherHint" Tag="UiLauncherCEHint" />
                         <Grid x:Name="PanDarkMode" Height="28" Margin="0,0,0,7">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition />
                             </Grid.ColumnDefinitions>
 
-                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="深浅" Margin="0,0,25,0" />
-                            <local:MyComboBox x:Name="ComboDarkMode" Tag="UiDarkMode" Grid.Column="1">
+                            <TextBlock Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left" Text="主题" Margin="0,0,20,0" />
+                            <local:MyComboBox Grid.Column="1" x:Name="ComboDarkMode" Tag="UiDarkMode">
                                 <local:MyComboBoxItem Content="浅色" IsSelected="True"/>
                                 <local:MyComboBoxItem Content="深色"/>
                                 <local:MyComboBoxItem Content="跟随系统"/>
                             </local:MyComboBox>
-                        </Grid>
-                        <Grid Height="28" Margin="0,0,0,7">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="Name" />
-                                <ColumnDefinition />
-                            </Grid.ColumnDefinitions>
 
-                            <TextBlock VerticalAlignment="Center" HorizontalAlignment="Left" Text="字体" Margin="0,0,25,0" />
-                            <local:MyComboBox x:Name="ComboUiFont" Grid.Column="1"/>
+                            <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Left" Text="字体" Margin="20,0,20,0" />
+                            <local:MyComboBox Grid.Column="3" x:Name="ComboUiFont"/>
                         </Grid>
                     </StackPanel>
                 </Grid>
