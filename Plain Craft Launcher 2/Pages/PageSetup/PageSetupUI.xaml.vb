@@ -7,6 +7,7 @@ Public Class PageSetupUI
         '重复加载部分
         PanBack.ScrollToHome()
         ThemeCheckAll(True)
+        RadioLauncherTheme14.Checked = True
 
         If ThemeDontClick <> 0 Then
             Dim NewText As String
@@ -36,7 +37,6 @@ Public Class PageSetupUI
         SliderLoad()
 
         'PanLauncherHide.Visibility = Visibility.Visible
-        RadioLauncherTheme14.Checked = True
 
         '设置解锁
 
