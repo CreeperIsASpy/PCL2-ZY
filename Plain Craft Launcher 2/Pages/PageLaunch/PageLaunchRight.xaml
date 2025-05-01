@@ -17,6 +17,23 @@
                     <TextBlock x:Name="LabHint2" TextWrapping="Wrap" Margin="0,0,0,2" FontSize="13.5" />
                 </StackPanel>
             </local:MyCard>
+            <local:MyCard Margin="0,0,0,15" Title="Colorful 提示" x:Name="PanColorfulHint">
+                <local:MyIconButton LogoScale="1.1" Logo="F1 M2,0 L0,2 8,10 0,18 2,20 10,12 18,20 20,18 12,10 20,2 18,0 10,8 2,0Z"
+                                    Height="20" Margin="10" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                    x:Name="BtnColorfulHintClose" />
+                <StackPanel Margin="25,38,23,15">
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,2" FontSize="13.5">
+                        这个版本是由 ruattd 维护的基于社区版的 Colorful 版本！ruattd 同样与龙腾猫跃无从属关系，且不会为您的使用做担保。
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" Margin="0,0,0,2" FontSize="13.5">
+                        Colorful 版本添加了自定义主题，以及一些可能有用的功能。
+                    </TextBlock>
+                    <TextBlock TextWrapping="Wrap" FontWeight="Bold"  Margin="0,0,0,2" FontSize="13.5">
+                        如果这个版本并非由您亲手从源码构建出来，或者您不是 PCL2 的赞助用户，请立即关闭并删除文件，这种行为严重违反了 PCL2 开源协议。
+                        若您无视提醒继续使用，在有必要时，我们会配合官方追究您及二进制文件分发者（如有）的法律责任。
+                    </TextBlock>
+                </StackPanel>
+            </local:MyCard>
             <local:MyCard Margin="0,0,0,15" Title="启动日志" x:Name="PanLog">
                 <TextBlock x:Name="LabLog" Margin="20,38,20,18" TextTrimming="None" TextWrapping="Wrap" />
             </local:MyCard>

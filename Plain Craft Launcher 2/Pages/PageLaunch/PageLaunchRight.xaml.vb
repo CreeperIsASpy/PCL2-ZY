@@ -9,11 +9,14 @@
         PanHint.Visibility = If(Setup.Get("UiLauncherCEHint"), Visibility.Visible, Visibility.Collapsed)
         LabHint1.Text = "社区版包含未在官方主线版本发布的功能，仅用于尝鲜。请不要向官方仓库反馈社区版的问题哦！"
         LabHint2.Text = $"若要永久隐藏此提示，请参阅 README。"
+        'Colorful 提示
+        PanColorfulHint.Visibility = If(Setup.Get("UiLauncherCEHint"), Visibility.Visible, Visibility.Collapsed)
     End Sub
 
     '暂时关闭快照版提示
-    Private Sub BtnHintClose_Click(sender As Object, e As EventArgs) Handles BtnHintClose.Click
+    Private Sub BtnHintClose_Click(sender As Object, e As EventArgs) Handles BtnHintClose.Click, BtnColorfulHintClose.Click
         AniDispose(PanHint, True)
+        AniDispose(PanColorfulHint, True)
     End Sub
 
 #Region "自定义主页"
