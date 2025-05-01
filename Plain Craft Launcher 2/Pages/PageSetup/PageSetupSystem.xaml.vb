@@ -238,7 +238,7 @@
     Private Sub BtnCreateShortcut_Click(sender As Object, e As EventArgs) Handles BtnCreateShortCut.Click
         If MyMsgBox("此操作将会在当前用户的开始菜单中创建 PCL2 CE Colorful 项目，删除启动器时不会自动删除，需要手动删除快捷方式文件，是否继续？",
                     Button1:="继续", Button2:="取消") = 1 Then
-            Dim shortcutPath = Environment.GetFolderPath(Environment.SpecialFolder.StartMenu) & "\Programs\PCL2 CM Colorful.lnk"
+            Dim shortcutPath = Environment.GetFolderPath(Environment.SpecialFolder.StartMenu) & "\Programs\PCL2 CE Colorful.lnk"
             CreateShortcut(shortcutPath)
             Hint("创建成功！", HintType.Finish)
         End If
@@ -246,7 +246,7 @@
     Private Sub BtnCreateDesktopShortcut_Click(sender As Object, e As EventArgs) Handles BtnCreateDesktopShortCut.Click
         If MyMsgBox("此操作将会在当前用户的桌面上创建 PCL2 CE Colorful 快捷方式，删除启动器时不会自动删除，需要手动删除快捷方式文件，是否继续？",
                     Button1:="继续", Button2:="取消") = 1 Then
-            Dim shortcutPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) & "\PCL2 CM Colorful.lnk"
+            Dim shortcutPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop) & "\PCL2 CE Colorful.lnk"
             CreateShortcut(shortcutPath)
             Hint("创建成功！", HintType.Finish)
         End If
