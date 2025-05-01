@@ -35,7 +35,8 @@ Public Class PageSetupUI
 
         SliderLoad()
 
-        PanLauncherHide.Visibility = Visibility.Visible
+        'PanLauncherHide.Visibility = Visibility.Visible
+        RadioLauncherTheme14.Checked = True
 
         '设置解锁
 
@@ -149,7 +150,7 @@ Public Class PageSetupUI
     Public Sub Reset()
         Try
             Setup.Reset("UiLauncherTransparent")
-            Setup.Reset("UiLauncherTheme")
+            'Setup.Reset("UiLauncherTheme")
             Setup.Reset("UiLauncherLogo")
             Setup.Reset("UiLauncherHue")
             Setup.Reset("UiLauncherSat")
@@ -529,6 +530,10 @@ Refresh:
     End Sub
     Private Sub HSL_Change() Handles SliderLauncherHue.Change, SliderLauncherLight.Change, SliderLauncherSat.Change, SliderLauncherDelta.Change
         If AniControlEnabled <> 0 OrElse SliderLauncherSat Is Nothing OrElse Not SliderLauncherSat.IsLoaded Then Exit Sub
+        ColorHue = SliderLauncherHue.Value
+        ColorLightAdjust = SliderLauncherLight.Value
+        ColorSat = SliderLauncherSat.Value
+        ColorHueTopbarDelta = SliderLauncherDelta.Value
         ThemeRefresh()
     End Sub
 

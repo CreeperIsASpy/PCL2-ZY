@@ -365,6 +365,11 @@ Public Class FormMain
                 IsDarkMode = IsSystemInDarkMode()
         End Select
 
+        '加载自定义主题
+        ColorHue = Setup.Get("UiLauncherHue")
+        ColorLightAdjust = Setup.Get("UiLauncherLight")
+        ColorSat = Setup.Get("UiLauncherSat")
+        ColorHueTopbarDelta = Setup.Get("UiLauncherDelta")
         ThemeRefresh()
         Try
             Height = Setup.Get("WindowHeight")

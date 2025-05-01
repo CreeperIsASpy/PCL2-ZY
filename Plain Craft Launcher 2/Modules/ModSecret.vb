@@ -358,6 +358,21 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     Public ColorGray7 As MyColor = If(IsDarkMode, ColorGrayDark7, ColorGrayLight7)
     Public ColorGray8 As MyColor = If(IsDarkMode, ColorGrayDark8, ColorGrayLight8)
     Public ColorSemiTransparent As New MyColor(1, Color8)
+    Public ColorDark1Hsl As MyColor.HslColor = ColorDark1.ToHsl()
+    Public ColorDark2Hsl As MyColor.HslColor = ColorDark2.ToHsl()
+    Public ColorDark3Hsl As MyColor.HslColor = ColorDark3.ToHsl()
+    Public ColorDark6Hsl As MyColor.HslColor = ColorDark6.ToHsl()
+    Public ColorDark7Hsl As MyColor.HslColor = ColorDark7.ToHsl()
+    Public ColorDark8Hsl As MyColor.HslColor = ColorDark8.ToHsl()
+    Public ColorLight1Hsl As MyColor.HslColor = ColorLight1.ToHsl()
+    Public ColorLight2Hsl As MyColor.HslColor = ColorLight2.ToHsl()
+    Public ColorLight3Hsl As MyColor.HslColor = ColorLight3.ToHsl()
+    Public ColorLight6Hsl As MyColor.HslColor = ColorLight6.ToHsl()
+    Public ColorLight7Hsl As MyColor.HslColor = ColorLight7.ToHsl()
+    Public ColorLight8Hsl As MyColor.HslColor = ColorLight8.ToHsl()
+    Public Color4Hsl As MyColor.HslColor = Color4.ToHsl()
+    Public Color5Hsl As MyColor.HslColor = Color5.ToHsl()
+    Public ColorBg0Hsl As MyColor.HslColor = ColorBg0.ToHsl()
 
     Public ThemeNow As Integer = -1
     'Public ColorHue As Integer = If(IsDarkMode, 200, 210), ColorSat As Integer = If(IsDarkMode, 100, 85), ColorLightAdjust As Integer = If(IsDarkMode, 15, 0), ColorHueTopbarDelta As Object = 0
@@ -387,6 +402,33 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         End If
     End Function
     Public Sub ThemeRefreshColor()
+        Dim sat = ColorSat / 2
+        ColorDark1 = ColorDark1.FromHSL2(ColorHue, sat, ColorDark1Hsl.L)
+        ColorDark2 = ColorDark2.FromHSL2(ColorHue, sat, ColorDark2Hsl.L)
+        ColorDark3 = ColorDark3.FromHSL2(ColorHue, sat, ColorDark3Hsl.L)
+        ColorDark6 = ColorDark6.FromHSL2(ColorHue, sat, ColorDark6Hsl.L)
+        ColorDark7 = ColorDark7.FromHSL2(ColorHue, sat, ColorDark7Hsl.L)
+        ColorDark8 = ColorDark8.FromHSL2(ColorHue, sat, ColorDark8Hsl.L)
+        ColorLight1 = ColorLight1.FromHSL(ColorHue, sat, ColorLight1Hsl.L)
+        ColorLight2 = ColorLight2.FromHSL(ColorHue, sat, ColorLight2Hsl.L)
+        ColorLight3 = ColorLight3.FromHSL(ColorHue, sat, ColorLight3Hsl.L)
+        ColorLight6 = ColorLight6.FromHSL(ColorHue, sat, ColorLight6Hsl.L)
+        ColorLight7 = ColorLight7.FromHSL(ColorHue, sat, ColorLight7Hsl.L)
+        ColorLight8 = ColorLight8.FromHSL(ColorHue, sat, ColorLight8Hsl.L)
+        Color4 = Color4.FromHSL(ColorHue, sat, Color4Hsl.L)
+        Color5 = Color5.FromHSL(ColorHue, sat, Color5Hsl.L)
+        ColorBg0 = ColorBg0.FromHSL(ColorHue, sat, ColorBg0Hsl.L)
+
+        Color1 = If(IsDarkMode, ColorDark1, ColorLight1)
+        Color2 = If(IsDarkMode, ColorDark2, ColorLight2)
+        Color3 = If(IsDarkMode, ColorDark3, ColorLight3)
+        Color6 = If(IsDarkMode, ColorDark6, ColorLight6)
+        Color7 = If(IsDarkMode, ColorDark7, ColorLight7)
+        Color8 = If(IsDarkMode, ColorDark8, ColorLight8)
+
+        ColorBg1 = New MyColor(190, Color7)
+        ColorSemiTransparent = New MyColor(1, Color8)
+
         ColorGray1 = If(IsDarkMode, ColorGrayDark1, ColorGrayLight1)
         ColorGray2 = If(IsDarkMode, ColorGrayDark2, ColorGrayLight2)
         ColorGray3 = If(IsDarkMode, ColorGrayDark3, ColorGrayLight3)
@@ -403,6 +445,12 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
             Application.Current.Resources("ColorBrush6") = New SolidColorBrush(ColorDark6)
             Application.Current.Resources("ColorBrush7") = New SolidColorBrush(ColorDark7)
             Application.Current.Resources("ColorBrush8") = New SolidColorBrush(ColorDark8)
+            Application.Current.Resources("ColorObject1") = ColorDark1.ToColor()
+            Application.Current.Resources("ColorObject2") = ColorDark2.ToColor()
+            Application.Current.Resources("ColorObject3") = ColorDark3.ToColor()
+            Application.Current.Resources("ColorObject6") = ColorDark6.ToColor()
+            Application.Current.Resources("ColorObject7") = ColorDark7.ToColor()
+            Application.Current.Resources("ColorObject8") = ColorDark8.ToColor()
             Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(ColorGrayDark1)
             Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(ColorGrayDark2)
             Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(ColorGrayDark3)
@@ -428,6 +476,12 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
             Application.Current.Resources("ColorBrush6") = New SolidColorBrush(ColorLight6)
             Application.Current.Resources("ColorBrush7") = New SolidColorBrush(ColorLight7)
             Application.Current.Resources("ColorBrush8") = New SolidColorBrush(ColorLight8)
+            Application.Current.Resources("ColorObject1") = ColorLight1.ToColor()
+            Application.Current.Resources("ColorObject2") = ColorLight2.ToColor()
+            Application.Current.Resources("ColorObject3") = ColorLight3.ToColor()
+            Application.Current.Resources("ColorObject6") = ColorLight6.ToColor()
+            Application.Current.Resources("ColorObject7") = ColorLight7.ToColor()
+            Application.Current.Resources("ColorObject8") = ColorLight8.ToColor()
             Application.Current.Resources("ColorBrushGray1") = New SolidColorBrush(ColorGrayLight1)
             Application.Current.Resources("ColorBrushGray2") = New SolidColorBrush(ColorGrayLight2)
             Application.Current.Resources("ColorBrushGray3") = New SolidColorBrush(ColorGrayLight3)
@@ -447,6 +501,11 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
             Application.Current.Resources("ColorBrushMsgBoxText") = New SolidColorBrush(ColorLight1)
             Application.Current.Resources("ColorBrushMemory") = New SolidColorBrush(Color.FromRgb(0, 0, 0))
         End If
+
+        Application.Current.Resources("ColorBrush4") = New SolidColorBrush(Color4)
+        Application.Current.Resources("ColorBrush5") = New SolidColorBrush(Color5)
+        Application.Current.Resources("ColorObject4") = Color4.ToColor()
+        Application.Current.Resources("ColorObject5") = Color5.ToColor()
     End Sub
     Public Sub ThemeRefreshMain()
         RunInUi(

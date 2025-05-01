@@ -399,6 +399,68 @@ Public Module ModBase
             Return Me = obj
         End Function
 
+        Public Class HslColor
+            Public Property H As Double    ' 色相（0-360 度）
+            Public Property S As Double ' 饱和度（0-100%）
+            Public Property L As Double  ' 亮度（0-100%）
+        End Class
+
+        '转换到 HSL 颜色 by DeepSeek
+        Public Function ToHsl() As HslColor
+            ' 验证输入范围
+            If R < 0 OrElse R > 255 Then Throw New ArgumentOutOfRangeException(NameOf(R))
+            If G < 0 OrElse G > 255 Then Throw New ArgumentOutOfRangeException(NameOf(G))
+            If B < 0 OrElse B > 255 Then Throw New ArgumentOutOfRangeException(NameOf(B))
+
+            ' 将 RGB 值归一化到 0-1 范围
+            Dim rNormalized As Double = R / 255.0
+            Dim gNormalized As Double = G / 255.0
+            Dim bNormalized As Double = B / 255.0
+
+            Dim max As Double = Math.Max(rNormalized, Math.Max(gNormalized, bNormalized))
+            Dim min As Double = Math.Min(rNormalized, Math.Min(gNormalized, bNormalized))
+            Dim delta As Double = max - min
+
+            Dim h As Double = 0.0
+            Dim s As Double = 0.0
+            Dim l As Double = (max + min) / 2.0
+
+            ' 计算饱和度
+            If delta <> 0 Then
+                s = delta / (1 - Math.Abs(2 * l - 1))
+            End If
+
+            ' 计算色相
+            If delta <> 0 Then
+                If max = rNormalized Then
+                    h = (gNormalized - bNormalized) / delta
+                    If gNormalized < bNormalized Then h += 6
+                ElseIf max = gNormalized Then
+                    h = 2 + (bNormalized - rNormalized) / delta
+                Else
+                    h = 4 + (rNormalized - gNormalized) / delta
+                End If
+                h *= 60
+
+                ' 确保色相在 0-360 范围内
+                If h < 0 Then h += 360
+            End If
+
+            ' 转换为百分比格式
+            s *= 100
+            l *= 100
+
+            ' 返回结果对象
+            Return New HslColor With {
+                .H = Math.Round(h, 2),
+                .S = Math.Round(s, 2),
+                .L = Math.Round(l, 2)
+                }
+        End Function
+
+        Public Function ToColor() As Color
+            Return Color.FromArgb(Math.Round(A), Math.Round(R), Math.Round(G), Math.Round(B))
+        End Function
     End Class
 
     ''' <summary>
