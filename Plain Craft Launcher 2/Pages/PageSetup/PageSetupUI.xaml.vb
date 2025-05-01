@@ -7,7 +7,6 @@ Public Class PageSetupUI
         '重复加载部分
         PanBack.ScrollToHome()
         ThemeCheckAll(True)
-        RadioLauncherTheme14.Checked = True
 
         If ThemeDontClick <> 0 Then
             Dim NewText As String
@@ -56,7 +55,8 @@ Public Class PageSetupUI
             SliderLauncherSat.Value = Setup.Get("UiLauncherSat")
             SliderLauncherDelta.Value = Setup.Get("UiLauncherDelta")
             SliderLauncherLight.Value = Setup.Get("UiLauncherLight")
-            If Setup.Get("UiLauncherTheme") <= 14 Then CType(FindName("RadioLauncherTheme" & Setup.Get("UiLauncherTheme")), MyRadioBox).Checked = True
+            'If Setup.Get("UiLauncherTheme") <= 14 Then CType(FindName("RadioLauncherTheme" & Setup.Get("UiLauncherTheme")), MyRadioBox).Checked = True
+            RadioLauncherTheme14.Checked = True
             CheckLauncherLogo.Checked = Setup.Get("UiLauncherLogo")
             CheckLauncherHint.Checked = Setup.Get("UiLauncherCEHint")
             CheckLauncherEmail.Checked = Setup.Get("UiLauncherEmail")
