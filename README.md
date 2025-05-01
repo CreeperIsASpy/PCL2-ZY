@@ -6,7 +6,7 @@
 
 # PCL CE Colorful
 
-[上游仓库](https://github.com/PCL2-Community/PCL2-CE) |
+[上游仓库](https://github.com/PCL-Community/PCL2-CE) |
 [官方仓库](https://github.com/Hex-Dragon/PCL2) |
 [帮助文档库](https://github.com/PCL-Community/PCL2CEHelp) |
 [提交问题](https://github.com/PCL-Community/PCL2-CE/issues/new/choose) |
