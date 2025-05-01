@@ -10,7 +10,7 @@
         <StackPanel x:Name="PanMain" Margin="25,25,25,25">
             <local:MyCard Title="提交反馈" x:Name="PanInfo">
                 <StackPanel Orientation="Vertical" Margin="20,40,18,22">
-                    <TextBlock Text="在提交反馈之前，先查找一下是否存在重复反馈，如果有重复反馈，那么请不要再次提交反馈，这样会加剧维护者的负担……&#xa;注意：此页面未展示所有的反馈，如需查看更多反馈，请前往 GitHub。" TextWrapping="Wrap"/>
+                    <TextBlock Text="这里是官方版的反馈列表，社区版有自己的反馈渠道，请勿将 Bug 反馈提交给官方。" TextWrapping="Wrap"/>
                     <Grid Margin="0,15,0,0" Height="35">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
@@ -18,7 +18,8 @@
                             <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
                             <ColumnDefinition Width="Auto" SharedSizeGroup="Button" />
                         </Grid.ColumnDefinitions>
-                        <local:MyButton x:Name="BtnManageOpen" Grid.Column="0" MinWidth="140" Text="前往反馈" Padding="13,0" Margin="0,0,20,0" HorizontalAlignment="Left" ColorType="Highlight" Click="Feedback_Click"/>
+                        <local:MyButton x:Name="BtnManageOpen" Grid.Column="0" MinWidth="210" Text="点击这里打开社区版反馈页面" Padding="13,0" Margin="0,0,20,0" HorizontalAlignment="Left" ColorType="Highlight" Click="Feedback_Click"/>
+                        <local:MyButton Grid.Column="1" MinWidth="120" Text="官方反馈页面" Padding="13,0" Margin="0,0,20,0" HorizontalAlignment="Left" Click="FeedbackOfficial_Click"/>
                     </Grid>
                 </StackPanel>
             </local:MyCard>

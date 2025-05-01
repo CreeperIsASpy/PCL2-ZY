@@ -142,4 +142,7 @@
     Private Sub Feedback_Click(sender As Object, e As MouseButtonEventArgs)
         PageOtherLeft.TryFeedback()
     End Sub
+    Private Sub FeedbackOfficial_Click(sender As Object, e As MouseButtonEventArgs)
+        OpenWebsite("https://github.com/Hex-Dragon/PCL2/issues/")
+    End Sub
 End Class
