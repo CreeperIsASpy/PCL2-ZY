@@ -931,7 +931,7 @@
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8.1">
       <Visible>False</Visible>
-      <ProductName>Microsoft .NET Framework 4.8.1 %28x86 和 x64%29</ProductName>
+      <ProductName>Microsoft .NET Framework 4.8.1 %28x86 and x64%29</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
@@ -1155,6 +1155,9 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Images\Heads\Pysio.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Images\Heads\ruattd.png" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>
