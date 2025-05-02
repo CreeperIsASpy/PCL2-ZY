@@ -20,7 +20,7 @@ Friend Module ModSecret
 #End If
 
     '用于微软登录的 ClientId
-    Public Const OAuthClientId As String = ""
+    Public Const OAuthClientId As String = "c14b0370-8d75-42f8-b329-5b60d39e319f"
     'CurseForge API Key
     Public Const CurseForgeAPIKey As String = ""
     ' LittleSkin OAuth ClientId
@@ -374,7 +374,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     Public Color5Hsl As MyColor.HslColor = Color5.ToHsl()
     Public ColorBg0Hsl As MyColor.HslColor = ColorBg0.ToHsl()
 
-    Public ThemeNow As Integer = -1
+    Public ThemeNow As Integer = 12
     'Public ColorHue As Integer = If(IsDarkMode, 200, 210), ColorSat As Integer = If(IsDarkMode, 100, 85), ColorLightAdjust As Integer = If(IsDarkMode, 15, 0), ColorHueTopbarDelta As Object = 0
     Public ColorHue As Integer = 210, ColorSat As Integer = 85, ColorLightAdjust As Integer = 0, ColorHueTopbarDelta As Object = 0
     Public ThemeDontClick As Integer = 0
@@ -560,7 +560,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         Return False
     End Function
     Friend Function ThemeCheckGold(Optional Code As String = Nothing) As Boolean
-        Return False
+        Return True
     End Function
     Friend Function DonateCodeInput() As Boolean?
         Return Nothing
