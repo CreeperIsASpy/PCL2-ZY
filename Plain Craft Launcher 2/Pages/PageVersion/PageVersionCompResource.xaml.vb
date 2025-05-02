@@ -483,12 +483,13 @@ Install:
     ''' 下载 Mod。
     ''' </summary>
     Private Sub BtnManageDownload_Click(sender As Object, e As MouseButtonEventArgs) Handles BtnManageDownload.Click, BtnHintDownload.Click
-        PageDownloadMod.TargetVersion = PageVersionLeft.Version '将当前版本设置为筛选器
+        PageComp.TargetVersion = PageVersionLeft.Version '将当前版本设置为筛选器
         Select Case CurrentCompType
             Case CompType.Mod : FrmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadMod)
             Case CompType.ResourcePack : FrmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadResourcePack)
             Case CompType.Shader : FrmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadShader)
         End Select
+        PageComp.TargetVersion = Nothing
     End Sub
 
 #End Region
@@ -541,7 +542,7 @@ Install:
 #Region "筛选"
 
     Private _Filter As FilterType = FilterType.All
-    Private Property Filter As FilterType
+    Public Property Filter As FilterType
         Get
             Return _Filter
         End Get
@@ -565,7 +566,7 @@ Install:
             RefreshUI()
         End Set
     End Property
-    Private Enum FilterType As Integer
+    Public Enum FilterType As Integer
         All = 0
         Enabled = 1
         Disabled = 2
