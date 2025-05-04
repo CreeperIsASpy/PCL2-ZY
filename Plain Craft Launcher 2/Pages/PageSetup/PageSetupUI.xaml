@@ -31,7 +31,7 @@
                             <TextBlock Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" Name="LabLauncherSat" Visibility="Collapsed" HorizontalAlignment="Left" Text="饱和度" Margin="0,10,20,0" />
                             <local:MySlider Grid.Row="1" Grid.Column="4" x:Name="SliderLauncherSat" Tag="UiLauncherSat" Visibility="Collapsed" MaxValue="100" ValueByKey="5" Margin="0,10,0,0" />
                             <TextBlock Grid.Row="2" Grid.Column="3" VerticalAlignment="Center" Name="LabLauncherLight" Visibility="Collapsed" HorizontalAlignment="Left" Text="亮度" Margin="0,10,20,0" />
-                            <local:MySlider Grid.Row="2" Grid.Column="4" x:Name="SliderLauncherLight" Tag="UiLauncherLight" Visibility="Collapsed" MaxValue="40" ValueByKey="5" Margin="0,10,0,0" />
+                            <local:MySlider Grid.Row="2" Grid.Column="4" x:Name="SliderLauncherLight" Tag="UiLauncherLight" Visibility="Collapsed" MaxValue="100" ValueByKey="5" Margin="0,10,0,0" />
                         </Grid>
                         <Grid x:Name="PanLauncherTheme" Height="90" Margin="0,0,0,7">
                             <Grid.ColumnDefinitions>
@@ -54,20 +54,15 @@
                             <local:MyRadioBox Grid.Column="3" Grid.Row="0" Text="小草绿" x:Name="RadioLauncherTheme2" Tag="UiLauncherTheme/2" />
                             <local:MyRadioBox Grid.Column="4" Grid.Row="0" Text="菠萝黄" x:Name="RadioLauncherTheme3" Tag="UiLauncherTheme/3" />
                             <local:MyRadioBox Grid.Column="5" Grid.Row="0" Text="橡木棕" x:Name="RadioLauncherTheme4" Tag="UiLauncherTheme/4" />
-                            <local:MyRadioBox Grid.Column="1" Grid.Row="1" Text="玄素黑" x:Name="RadioLauncherTheme5" Tag="UiLauncherTheme/5" Opacity="0" ToolTip="灰色是个谎言" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="1" Grid.Row="1" Text="？？？" x:Name="RadioLauncherTheme5Gray" Opacity="1" />
-                            <TextBlock Grid.Column="1" Grid.Row="1" x:Name="LabLauncherTheme5Unlock" Background="{StaticResource ColorBrushSemiTransparent}" ToolTip="灰色是个谎言" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="2" Grid.Row="1" Text="？？？" x:Name="RadioLauncherTheme12" Tag="UiLauncherTheme/12" ToolTip="滑稽树上滑稽果，滑稽树下你和我，滑稽之日搞事情，欢乐多又多" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="3" Grid.Row="1" Text="？？？" x:Name="RadioLauncherTheme6" Tag="UiLauncherTheme/6" ToolTip="99 次重逢的喜悦" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="4" Grid.Row="1" Text="？？？" x:Name="RadioLauncherTheme7" Tag="UiLauncherTheme/7" ToolTip="072 101 108 112 032 068 101 118 032 048 046 052 046 052" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="5" Grid.Row="1" Text="？？？" x:Name="RadioLauncherTheme13" Tag="UiLauncherTheme/13" ToolTip="这就是传说中的欧皇了吧" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="1" Grid.Row="2" Text="？？？" x:Name="RadioLauncherTheme8" Tag="UiLauncherTheme/8" ToolTipService.Placement="Bottom" />
-                            <TextBlock Grid.Column="1" Grid.Row="2" x:Name="LabLauncherTheme8Copy" Background="{StaticResource ColorBrushSemiTransparent}" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="2" Grid.Row="2" Text="？？？" x:Name="RadioLauncherTheme9" Tag="UiLauncherTheme/9" ToolTipService.Placement="Bottom" />
-                            <TextBlock Grid.Column="2" Grid.Row="2" x:Name="LabLauncherTheme9Copy" Background="{StaticResource ColorBrushSemiTransparent}" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="3" Grid.Row="2" Text="？？？" x:Name="RadioLauncherTheme10" Tag="UiLauncherTheme/10" ToolTip="进行一次正版登录，支持正版游戏！" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
-                            <local:MyRadioBox Grid.Column="4" Grid.Row="2" Text="？？？" x:Name="RadioLauncherTheme11" Tag="UiLauncherTheme/11" ToolTipService.Placement="Bottom" ToolTip="右键打开解密游戏入口" />
-                            <TextBlock Grid.Column="4" Grid.Row="2" x:Name="LabLauncherTheme11Click" Background="{StaticResource ColorBrushSemiTransparent}" ToolTipService.Placement="Bottom" />
+                            <local:MyRadioBox Grid.Column="1" Grid.Row="1" Text="玄素黑" x:Name="RadioLauncherTheme5" Tag="UiLauncherTheme/5" ToolTip="灰色是个谎言" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
+                            <local:MyRadioBox Grid.Column="2" Grid.Row="1" Text="滑稽彩" x:Name="RadioLauncherTheme12" Tag="UiLauncherTheme/12" ToolTip="滑稽树上滑稽果，滑稽树下你和我，滑稽之日搞事情，欢乐多又多" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
+                            <local:MyRadioBox Grid.Column="3" Grid.Row="1" Text="铁杆粉" x:Name="RadioLauncherTheme6" Tag="UiLauncherTheme/6" ToolTip="99 次重逢的喜悦" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
+                            <local:MyRadioBox Grid.Column="4" Grid.Row="1" Text="神秘紫" x:Name="RadioLauncherTheme7" Tag="UiLauncherTheme/7" ToolTip="072 101 108 112 032 068 101 118 032 048 046 052 046 052" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
+                            <local:MyRadioBox Grid.Column="5" Grid.Row="1" Text="欧皇彩" x:Name="RadioLauncherTheme13" Tag="UiLauncherTheme/13" ToolTip="这就是传说中的欧皇了吧" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
+                            <local:MyRadioBox Grid.Column="1" Grid.Row="2" Text="秋仪金" x:Name="RadioLauncherTheme8" Tag="UiLauncherTheme/8" ToolTipService.Placement="Bottom" ToolTipService.ShowOnDisabled="True"/>
+                            <local:MyRadioBox Grid.Column="2" Grid.Row="2" Text="活跃橙" x:Name="RadioLauncherTheme9" Tag="UiLauncherTheme/9" ToolTipService.Placement="Bottom" ToolTipService.ShowOnDisabled="True"/>
+                            <local:MyRadioBox Grid.Column="3" Grid.Row="2" Text="跳票红" x:Name="RadioLauncherTheme10" Tag="UiLauncherTheme/10" ToolTip="进行一次正版登录，支持正版游戏！" ToolTipService.ShowOnDisabled="True" ToolTipService.Placement="Bottom" />
+                            <local:MyRadioBox Grid.Column="4" Grid.Row="2" Text="极客蓝" x:Name="RadioLauncherTheme11" Tag="UiLauncherTheme/11" ToolTipService.Placement="Bottom" ToolTip="右键打开解密游戏入口" ToolTipService.ShowOnDisabled="True"/>
                             <local:MyRadioBox Grid.Column="5" Grid.Row="2" Text="自定义" x:Name="RadioLauncherTheme14" Tag="UiLauncherTheme/14" ToolTipService.Placement="Bottom" ToolTip="需要解锁五个隐藏主题" ToolTipService.ShowOnDisabled="True" />
                         </Grid>
                         <Border Background="{DynamicResource ColorBrushToolTip}" Margin="0,0,0,7" CornerRadius="4" Name="PanLauncherHide" Visibility="Collapsed">

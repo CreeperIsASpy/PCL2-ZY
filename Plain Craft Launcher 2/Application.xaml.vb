@@ -159,7 +159,7 @@ WaitRetry:
                 End Try
             End If
             '计时
-            Log("[Start] 第一阶段加载用时：" & GetTimeTick() - ApplicationStartTick & " ms")
+            Log($"[Start] 第一阶段加载用时：{GetTimeTick() - ApplicationStartTick} ms")
             ApplicationStartTick = GetTimeTick()
             '执行测试
 #If DEBUG Then

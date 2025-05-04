@@ -379,14 +379,42 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     Public ColorBg0Hsl As MyColor.HslColor = ColorBg0.ToHsl()
 
     Public ThemeNow As Integer = 12
-    'Public ColorHue As Integer = If(IsDarkMode, 200, 210), ColorSat As Integer = If(IsDarkMode, 100, 85), ColorLightAdjust As Integer = If(IsDarkMode, 15, 0), ColorHueTopbarDelta As Object = 0
-    Public ColorHue As Integer = 210, ColorSat As Integer = 85, ColorLightAdjust As Integer = 0, ColorHueTopbarDelta As Object = 0
+    Public ColorHue As Integer = If(IsDarkMode, 200, 210), ColorSat As Integer = If(IsDarkMode, 100, 85), ColorLightAdjust As Integer = If(IsDarkMode, 0, 15), ColorHueTopbarDelta As Object = 0
     Public ThemeDontClick As Integer = 0
 
     '深色模式事件
 
     ' 定义自定义事件
     Public Event ThemeChanged As EventHandler(Of Boolean)
+
+    Public Sub ThemeLoadPanTitle()
+        If ThemeNow = 13 Then
+            Dim BgImg = New ImageDrawing With {
+                .Rect = New Rect(0, 0, FrmMain.PanTitle.ActualWidth, 48),
+                .ImageSource = New BitmapImage(New Uri("pack://application:,,,/Plain Craft Launcher 2;component/Images/Themes/13.png", UriKind.Absolute))
+            }
+            Dim BgImgSource = New DrawingImage(BgImg)
+            BgImgSource.Freeze()
+            Dim BgImgControl = New Image With {
+                .Stretch = Stretch.UniformToFill,
+                .Source = BgImgSource,
+                .IsHitTestVisible = False,
+                .Opacity = 0.5
+            }
+            FrmMain.PanTitle.Children.Add(BgImgControl)
+        Else
+            Dim BgImg = Nothing
+            Dim BgImgSource = New DrawingImage(BgImg)
+            BgImgSource.Freeze()
+            Dim BgImgControl = New Image With {
+                .Stretch = Stretch.UniformToFill,
+                .Source = BgImgSource,
+                .IsHitTestVisible = False,
+                .Opacity = 0.5
+            }
+            FrmMain.PanTitle.Children.Add(BgImgControl)
+        End If
+    End Sub
 
     ' 触发事件的函数
     Public Sub RaiseThemeChanged(isDarkMode As Boolean)
@@ -536,10 +564,10 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
                 FrmMain.PanTitle.Background = Brush
                 FrmMain.PanTitle.Background.Freeze()
             Else
-                Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue - 21, ColorSat, 53 + ColorLightAdjust)})
-                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.33, .Color = New MyColor().FromHSL2(ColorHue - 7, ColorSat, 47 + ColorLightAdjust)})
-                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.67, .Color = New MyColor().FromHSL2(ColorHue + 7, ColorSat, 47 + ColorLightAdjust)})
-                Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + 21, ColorSat, 53 + ColorLightAdjust)})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue - ColorHueTopbarDelta, ColorSat, ColorLightAdjust)})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.33, .Color = New MyColor().FromHSL2(ColorHue - ColorHueTopbarDelta, ColorSat, ColorLightAdjust)})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.67, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta, ColorSat, ColorLightAdjust)})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta, ColorSat, ColorLightAdjust)})
                 FrmMain.PanTitle.Background = Brush
             End If
             '主页面背景

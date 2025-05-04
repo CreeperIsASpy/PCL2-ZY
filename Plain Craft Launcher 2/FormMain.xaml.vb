@@ -377,6 +377,7 @@ Public Class FormMain
         ColorSat = Setup.Get("UiLauncherSat")
         ColorHueTopbarDelta = Setup.Get("UiLauncherDelta")
         ThemeRefresh()
+        ModSecret.ThemeLoadPanTitle()
         Try
             Height = Setup.Get("WindowHeight")
             Width = Setup.Get("WindowWidth")
