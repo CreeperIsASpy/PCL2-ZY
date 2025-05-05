@@ -440,7 +440,7 @@ Public Class FormMain
             End Try
             '清理自动更新文件
             Try
-                If File.Exists(Path & "PCL\Plain Craft Launcher 2.exe") Then File.Delete(Path & "PCL\Plain Craft Launcher 2.exe")
+                If File.Exists(Path & "PCL\Plain Craft Launcher Community Edition.exe") Then File.Delete(Path & "PCL\Plain Craft Launcher Community Edition.exe")
             Catch ex As Exception
                 Log(ex, "清理自动更新文件失败")
             End Try
@@ -1086,6 +1086,7 @@ Public Class FormMain
         DownloadFabric = 8
         DownloadQuilt = 10
         DownloadLiteLoader = 9
+        DownloadLabyMod = 20
         DownloadMod = 11
         DownloadPack = 12
         DownloadDataPack = 13

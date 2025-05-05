@@ -1,4 +1,7 @@
 Imports System.IO.Compression
+Imports System.Threading.Tasks
+Imports Microsoft.Identity.Client
+Imports Microsoft.Identity.Client.Broker
 Public Module ModLaunch
 
 #Region "开始"
@@ -233,7 +236,7 @@ NextInner:
         RunInUiWait(Sub() CheckResult = IsProfileVaild())
         If SelectedProfile Is Nothing Then '没选档案
             CheckResult = "请先选择一个档案再启动游戏！"
-        ElseIf Setup.Get("VersionServerLoginRequire", McVersionCurrent) = 1 Then '要求正版验证
+        ElseIf McVersionCurrent.Version.HasLabyMod OrElse Setup.Get("VersionServerLoginRequire", McVersionCurrent) = 1 Then '要求正版验证
             If Not SelectedProfile.Type = McLoginType.Ms Then
                 CheckResult = "当前实例要求使用正版验证，请使用正版验证档案启动游戏！"
             End If
@@ -365,9 +368,9 @@ NextInner:
         Inherits McLoginData
 
         ''' <summary>
-        ''' 缓存的 OAuth Refresh Token。若没有则为空字符串。
+        ''' 缓存的 OAuth Identity Id。若没有则为空字符串。
         ''' </summary>
-        Public OAuthRefreshToken As String = ""
+        Public OAuthId As String = ""
         Public AccessToken As String = ""
         Public Uuid As String = ""
         Public UserName As String = ""
@@ -377,7 +380,7 @@ NextInner:
             Type = McLoginType.Ms
         End Sub
         Public Overrides Function GetHashCode() As Integer
-            Return GetHash(OAuthRefreshToken & AccessToken & Uuid & UserName & ProfileJson) Mod Integer.MaxValue
+            Return GetHash(OAuthId & AccessToken & Uuid & UserName & ProfileJson) Mod Integer.MaxValue
         End Function
     End Class
 #End Region
@@ -484,24 +487,15 @@ NextInner:
         End If
         '尝试登录
         Dim IsSkipAuth As Boolean = False
-        Dim OAuthTokens As String()
-        If Input.OAuthRefreshToken = "" Then
-            '无 RefreshToken
-            IsNewProfile = True
-Relogin:
-            OAuthTokens = MsLoginStep1New(Data)
-        Else
-            '有 RefreshToken
-            IsNewProfile = False
-            OAuthTokens = MsLoginStep1Refresh(Input.OAuthRefreshToken)
-            If OAuthTokens(0) = "Relogin" Then GoTo Relogin '要求重新打开登录网页认证
-            If OAuthTokens(1) = "Ignore" Then GoTo SkipLogin
-        End If
+        Dim OAuthAccessToken As String
+        Dim OAuthId As String
+        Dim OAuthResult = MsLoginStep1(Data)
+        If OAuthResult Is Nothing Then GoTo SkipLogin
+        OAuthAccessToken = OAuthResult.AccessToken
+        OAuthId = OAuthResult.Account.HomeAccountId.Identifier
         If Data.IsAborted Then Throw New ThreadInterruptedException
         Data.Progress = 0.25
         If Data.IsAborted Then Throw New ThreadInterruptedException
-        Dim OAuthAccessToken As String = OAuthTokens(0)
-        Dim OAuthRefreshToken As String = OAuthTokens(1)
         Dim XBLToken As String = MsLoginStep2(OAuthAccessToken)
         If XBLToken = "Ignore" Then GoTo SkipLogin
         Data.Progress = 0.4
@@ -522,8 +516,7 @@ Relogin:
         Data.Progress = 0.98
         For Each Profile In ProfileList
             If Profile.Type = McLoginType.Ms AndAlso Profile.Username = Result(1) AndAlso Profile.Uuid = Result(0) Then
-                MyMsgBox("已经存在该档案，无需再次创建了哦.....", "档案已存在")
-                GoTo SkipLogin
+                IsNewProfile = False
             End If
         Next
         '输出登录结果
@@ -533,7 +526,7 @@ Relogin:
                 .Uuid = Result(0),
                 .Username = Result(1),
                 .AccessToken = AccessToken,
-                .RefreshToken = OAuthRefreshToken,
+                .IdentityId = OAuthId,
                 .Expires = 1743779140286,
                 .Desc = "",
                 .RawJson = Result(2)
@@ -543,7 +536,7 @@ Relogin:
             Dim ProfileIndex = ProfileList.IndexOf(SelectedProfile)
             ProfileList(ProfileIndex).Username = Result(1)
             ProfileList(ProfileIndex).AccessToken = AccessToken
-            ProfileList(ProfileIndex).RefreshToken = OAuthRefreshToken
+            ProfileList(ProfileIndex).IdentityId = OAuthId
         End If
         SaveProfile()
         Data.Output = New McLoginResult With {.AccessToken = AccessToken, .Name = Result(1), .Uuid = Result(0), .Type = "Microsoft", .ClientToken = Result(0), .ProfileJson = Result(2)}
@@ -561,67 +554,110 @@ SkipLogin:
             Exit Sub
         End If
     End Sub
-    '正版验证步骤 1，原始登录：获取 DeviceCode 并开启登录网页
-    Private Function MsLoginStep1New(Data As LoaderTask(Of McLoginMs, McLoginResult)) As String()
-        '参考：https://learn.microsoft.com/zh-cn/entra/identity-platform/v2-oauth2-device-code
+    '正版验证步骤 1：使用 MSAL 获取账号信息
+    Private Function MsLoginStep1(Data As LoaderTask(Of McLoginMs, McLoginResult)) As AuthenticationResult
+        '参考：https://learn.microsoft.com/zh-cn/entra/msal/dotnet/
+        ProfileLog("开始正版验证步骤 1/6")
+        Dim Scopes = {"XboxLive.signin", "offline_access"}
+        Dim Options As New BrokerOptions(BrokerOptions.OperatingSystems.Windows)
+        Options.Title = "PCL CE 正版验证"
 
-        '初始请求
+        Dim App As IPublicClientApplication = PublicClientApplicationBuilder.Create(OAuthClientId).
+            WithAuthority(AzureCloudInstance.AzurePublic, "consumers").
+            WithDefaultRedirectUri().
+            WithParentActivityOrWindow(Function()
+                                           Return Handle
+                                       End Function).
+            WithBroker(Options).
+            Build()
+
+        Dim Result As AuthenticationResult = Nothing
+        If String.IsNullOrWhiteSpace(Data.Input.OAuthId) Then GoTo NewLogin
+        Dim Account As IAccount = App.GetAccountAsync(Data.Input.OAuthId).GetAwaiter().GetResult()
+
+        Try
+            If Account IsNot Nothing Then
+                Result = App.AcquireTokenSilent(Scopes, Account).ExecuteAsync().GetAwaiter().GetResult()
+                Return Result
+            Else
+                Result = App.AcquireTokenSilent(Scopes, PublicClientApplication.OperatingSystemAccount).ExecuteAsync().GetAwaiter().GetResult()
+                Return Result
+            End If
+        Catch ex1 As MsalUiRequiredException
+            GoTo NewLogin
+        Catch ex As Exception
+            ProfileLog("进行正版验证 Step 1 时发生了意外错误: " + ex.ToString())
+            GoTo Exception
+        End Try
+
+NewLogin:
+        Try
+            If Setup.Get("LoginMsAuthType") = 0 Then 'Web Account Manager / https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/desktop-mobile/wam
+                Result = App.AcquireTokenInteractive(Scopes).ExecuteAsync().GetAwaiter().GetResult()
+            Else 'Device Code Flow / https://learn.microsoft.com/zh-cn/entra/msal/dotnet/acquiring-tokens/desktop-mobile/device-code-flow
 Retry:
-        ProfileLog("开始正版验证步骤 1/6（原始登录）")
-        Dim PrepareJson As JObject = GetJson(NetRequestRetry("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode", "POST",
-            $"client_id={OAuthClientId}&tenant=/consumers&scope=XboxLive.signin%20offline_access", "application/x-www-form-urlencoded"))
-        ProfileLog("网页登录地址：" & PrepareJson("verification_uri").ToString)
-
-        '弹窗
-        Dim Converter As New MyMsgBoxConverter With {.Content = PrepareJson, .ForceWait = True, .Type = MyMsgBoxType.Login}
-        WaitingMyMsgBox.Add(Converter)
-        While Converter.Result Is Nothing
-            Thread.Sleep(100)
-        End While
-        If TypeOf Converter.Result Is RestartException Then
-            If MyMsgBox($"请在登录时选择 {vbLQ}其他登录方法{vbRQ}，然后选择 {vbLQ}使用我的密码{vbRQ}。{vbCrLf}如果没有该选项，请选择 {vbLQ}设置密码{vbRQ}，设置完毕后再登录。",
-                "需要使用密码登录", "重新登录", "设置密码", "取消",
-                Button2Action:=Sub() OpenWebsite("https://account.live.com/password/Change")) = 1 Then
+                Result = App.AcquireTokenWithDeviceCode(Scopes, Function(deviceCodeResult)
+Retry:
+                                                                    Dim Jobj As New JObject From
+                                                                    {
+                                                                        {"device_code", deviceCodeResult.DeviceCode},
+                                                                        {"user_code", deviceCodeResult.UserCode},
+                                                                        {"verification_uri", deviceCodeResult.VerificationUrl},
+                                                                        {"expires_in", deviceCodeResult.ExpiresOn},
+                                                                        {"interval", deviceCodeResult.Interval}
+                                                                    }
+                                                                    '弹窗
+                                                                    Dim Converter As New MyMsgBoxConverter With {.Content = Jobj, .ForceWait = True, .Type = MyMsgBoxType.Login}
+                                                                    WaitingMyMsgBox.Add(Converter)
+                                                                    While Converter.Result Is Nothing
+                                                                        Thread.Sleep(100)
+                                                                    End While
+                                                                    If TypeOf Converter.Result Is RestartException Then
+                                                                        If MyMsgBox($"请在登录时选择 {vbLQ}其他登录方法{vbRQ}，然后选择 {vbLQ}使用我的密码{vbRQ}。{vbCrLf}如果没有该选项，请选择 {vbLQ}设置密码{vbRQ}，设置完毕后再登录。", "需要使用密码登录", "重新登录", "设置密码", "取消",
+                                                                                          Button2Action:=Sub() OpenWebsite("https://account.live.com/password/Change")) = 1 Then
+                                                                            GoTo Retry
+                                                                        Else
+                                                                            Throw New Exception("$$")
+                                                                        End If
+                                                                    ElseIf TypeOf Converter.Result Is Exception Then
+                                                                        Throw CType(Converter.Result, Exception)
+                                                                    Else
+                                                                        Return Task.FromResult(0)
+                                                                    End If
+                                                                End Function).ExecuteAsync().GetAwaiter().GetResult()
+            End If
+        Catch ex1 As MsalServiceException
+            If ex1.Message.Contains("authorization_declined") Or ex1.Message.Contains("access_denied") Then
+                Hint("你拒绝了 PCL 申请的权限……", HintType.Critical)
+            ElseIf ex1.Message.Contains("expired_token") Then
+                Hint("登录用时太长啦，重新试试吧！", HintType.Critical)
+            ElseIf ex1.Message.Contains("service abuse") Then
+                Hint("非常抱歉，该账号已被微软封禁，无法登录", HintType.Critical)
+            ElseIf ex1.Message.Contains("AADSTS70000") Then '可能不能判 “invalid_grant”，见 #269
                 GoTo Retry
             Else
-                Throw New Exception("$$")
+                ProfileLog("进行正版验证 Step 1 时发生了意外错误: " + ex1.ToString())
+                GoTo Exception
             End If
-        ElseIf TypeOf Converter.Result Is Exception Then
-            Throw CType(Converter.Result, Exception)
-        Else
-            Return Converter.Result
-        End If
-    End Function
-    '正版验证步骤 1，刷新登录：从 OAuth Code 或 OAuth RefreshToken 获取 {OAuth AccessToken, OAuth RefreshToken}
-    Private Function MsLoginStep1Refresh(Code As String) As String()
-        ProfileLog("开始正版验证步骤 1/6（刷新登录）")
-
-        Dim Result As String
-        Try
-            Result = NetRequestMultiple("https://login.live.com/oauth20_token.srf", "POST",
-                $"client_id={OAuthClientId}&refresh_token={Uri.EscapeDataString(Code)}&grant_type=refresh_token&scope=XboxLive.signin%20offline_access",
-                "application/x-www-form-urlencoded", 2)
         Catch ex As Exception
-            If ex.Message.ContainsF("must sign in again", True) OrElse ex.Message.ContainsF("password expired", True) OrElse
-               (ex.Message.Contains("refresh_token") AndAlso ex.Message.Contains("is not valid")) Then '#269
-                Return {"Relogin", ""}
-            Else
-                Dim IsIgnore As Boolean = False
-                RunInUiWait(Sub()
-                                If Not IsLaunching Then Exit Sub
-                                If MyMsgBox($"启动器在尝试刷新账号信息时遇到了网络错误。{vbCrLf}你可以选择取消，检查网络后再次启动，也可以选择忽略错误继续启动，但可能无法游玩部分服务器。", "账号信息获取失败", "继续", "取消") = 1 Then IsIgnore = True
-                            End Sub)
-                If IsIgnore Then
-                    Return {SelectedProfile.AccessToken, "Ignore"}
-                    Exit Function
-                End If
-                Throw
-            End If
+            ProfileLog("进行正版验证 Step 1 时发生了意外错误: " + ex.ToString())
+            GoTo Exception
         End Try
-        Dim ResultJson As JObject = GetJson(Result)
-        Dim AccessToken As String = ResultJson("access_token").ToString
-        Dim RefreshToken As String = ResultJson("refresh_token").ToString
-        Return {AccessToken, RefreshToken}
+        Hint("网页登录成功！", HintType.Finish)
+        FrmMain.ShowWindowToTop()
+        Return Result
+
+Exception:
+        Dim IsIgnore As Boolean = False
+        RunInUiWait(Sub()
+                        If Not IsLaunching Then Exit Sub
+                        If MyMsgBox($"启动器在尝试刷新账号信息时遇到了网络错误。{vbCrLf}你可以选择取消，检查网络后再次启动，也可以选择忽略错误继续启动，但可能无法游玩部分服务器。", "账号信息获取失败", "继续", "取消") = 1 Then IsIgnore = True
+                    End Sub)
+        If IsIgnore Then
+            Return Nothing
+        Else
+            Throw New Exception("$$")
+        End If
     End Function
     '正版验证步骤 2：从 OAuth AccessToken 获取 XBLToken
     Private Function MsLoginStep2(AccessToken As String) As String
@@ -1303,11 +1339,38 @@ LoginFinish:
     Private ExtractJavaWrapperLock As New Object
 
     ''' <summary>
+    ''' 释放 linkd 并返回完整文件路径。
+    ''' </summary>
+    Public Function ExtractLinkD() As String
+        Dim LinkDPath As String = PathPure & "linkd.exe"
+        SyncLock ExtractLinkDLock '避免 OptiFine 和 Forge 安装时同时释放 Java Wrapper 导致冲突
+            Try
+                WriteFile(LinkDPath, GetResources("linkd"))
+            Catch ex As Exception
+                If File.Exists(LinkDPath) Then
+                    Log(ex, "linkd 文件释放失败，但文件已存在，将在删除后尝试重新生成", LogLevel.Developer)
+                    Try
+                        File.Delete(LinkDPath)
+                        WriteFile(LinkDPath, GetResources("linkd"))
+                    Catch ex2 As Exception
+                        Throw New FileNotFoundException("释放 linkd 失败", ex2)
+                    End Try
+                Else
+                    Throw New FileNotFoundException("释放 linkd 失败", ex)
+                End If
+            End Try
+        End SyncLock
+        Return LinkDPath
+    End Function
+    Private ExtractLinkDLock As New Object
+
+    ''' <summary>
     ''' 判断是否使用 RetroWrapper。
     ''' </summary>
     Private Function McLaunchNeedsRetroWrapper() As Boolean
         Return (McVersionCurrent.ReleaseTime >= New Date(2013, 6, 25) AndAlso McVersionCurrent.Version.McCodeMain = 99) OrElse (McVersionCurrent.Version.McCodeMain < 6 AndAlso McVersionCurrent.Version.McCodeMain <> 99) AndAlso Not Setup.Get("LaunchAdvanceDisableRW") AndAlso Not Setup.Get("VersionAdvanceDisableRW", McVersionCurrent) '<1.6
     End Function
+
 
     '主方法，合并 Jvm、Game、Replace 三部分的参数数据
     Private Sub McLaunchArgumentMain(Loader As LoaderTask(Of String, List(Of McLibToken)))
@@ -1964,150 +2027,28 @@ NextVersion:
             Log(ex, "更新 options.txt 失败", LogLevel.Hint)
         End Try
 
-        '离线皮肤 Alex 警告
-        If McVersionCurrent.Version.McCodeMain <= 7 AndAlso McVersionCurrent.Version.McCodeMain >= 2 AndAlso '1.2 ~ 1.7
-               McLoginLoader.Input.Type = McLoginType.Legacy AndAlso '离线登录
-               (Setup.Get("LaunchSkinType") = 2 OrElse '强制 Alex
-               (Setup.Get("LaunchSkinType") = 4 AndAlso Setup.Get("LaunchSkinSlim"))) Then '或选用 Alex 皮肤
-            Hint("此 Minecraft 版本尚不支持 Alex 皮肤，你的皮肤可能会显示为 Steve！", HintType.Critical)
-        End If
-
-        '离线皮肤资源包
-        Try
-            Directory.CreateDirectory(McVersionCurrent.PathIndie & "resourcepacks\")
-            Dim ZipFileAddress As String = McVersionCurrent.PathIndie & "resourcepacks\PCL2 Skin.zip"
-            Dim NewTypeSetup As Boolean = McVersionCurrent.Version.McCodeMain >= 13 OrElse McVersionCurrent.Version.McCodeMain < 6
-            If McLoginLoader.Input.Type = McLoginType.Legacy AndAlso Setup.Get("LaunchSkinType") = 4 AndAlso File.Exists(PathAppdata & "CustomSkin.png") Then
-                Directory.CreateDirectory(PathTemp)
-                Dim MetaFileAddress As String = PathTemp & "pack.mcmeta"
-                Dim PackPicAddress As String = PathTemp & "pack.png"
-                Dim PackFormat As Integer
-                Select Case McVersionCurrent.Version.McCodeMain
-                    Case 0, 1, 2, 3, 4, 5
-                        '更早的版本没有资源包；如果判断失败该值为 -1，不会跑到这
-                        McLaunchLog("Minecraft 版本过老，尚不支持自定义离线皮肤")
-                        GoTo IgnoreCustomSkin
-                    Case 6, 7, 8
-                        PackFormat = 1
-                    Case 9, 10
-                        PackFormat = 2
-                    Case 11, 12
-                        PackFormat = 3
-                    Case 13, 14
-                        PackFormat = 4
-                    Case 15
-                        PackFormat = 5
-                    Case 16
-                        PackFormat = 6
-                    Case 17
-                        PackFormat = 7
-                    Case 18
-                        If McVersionCurrent.Version.McCodeSub <= 2 Then
-                            PackFormat = 8
-                        Else
-                            PackFormat = 9
-                        End If
-                    Case 19
-                        If McVersionCurrent.Version.McCodeSub <= 3 Then
-                            PackFormat = 9
-                        Else
-                            PackFormat = 12
-                        End If
-                    Case 20
-                        If McVersionCurrent.Version.McCodeSub <= 1 Then
-                            PackFormat = 15
-                        Else
-                            PackFormat = 17
-                        End If
-                    Case Else '快照版是 99
-                        PackFormat = 17
-                        'https://zh.minecraft.wiki/w/数据包#数据包版本
-                End Select
-                McLaunchLog("正在构建自定义皮肤资源包，格式为：" & PackFormat)
-                '准备文件
-                Dim Bit As New MyBitmap(PathImage & "Heads/Logo.png")
-                Bit.Save(PackPicAddress)
-                WriteFile(MetaFileAddress, "{""pack"":{""pack_format"":" & PackFormat & ",""description"":""PCL 自定义离线皮肤资源包""}}")
-                Dim Skin As New MyBitmap(PathAppdata & "CustomSkin.png")
-                If (McVersionCurrent.Version.McCodeMain = 6 OrElse McVersionCurrent.Version.McCodeMain = 7) AndAlso Skin.Pic.Height = 64 Then
-                    McLaunchLog("该 Minecraft 版本不支持双层皮肤，已进行裁剪")
-                    Skin = Skin.Clip(0, 0, 64, 32)
-                End If
-                Skin.Save(Path & "PCL\CustomSkin_Cliped.png")
-                '构建压缩文件
-                Using ZipFile As New FileStream(ZipFileAddress, FileMode.Create)
-                    Using ZipAr As New ZipArchive(ZipFile, ZipArchiveMode.Create)
-                        ZipAr.CreateEntryFromFile(MetaFileAddress, "pack.mcmeta")
-                        ZipAr.CreateEntryFromFile(PackPicAddress, "pack.png")
-                        '1.19.3+ 使用复杂版本的替换
-                        Dim IsOldType As Boolean
-                        Select Case McVersionCurrent.Version.McCodeMain
-                            Case Is < 19
-                                IsOldType = True
-                            Case 19
-                                IsOldType = McVersionCurrent.Version.McCodeSub <= 2
-                            Case Else
-                                IsOldType = False
-                        End Select
-                        If IsOldType Then
-                            ZipAr.CreateEntryFromFile(Path & "PCL\CustomSkin_Cliped.png", "assets/minecraft/textures/entity/" & If(Setup.Get("LaunchSkinSlim"), "alex.png", "steve.png"))
-                        Else
-                            For Each SkinName In {"alex", "ari", "efe", "kai", "makena", "noor", "steve", "sunny", "zuri"}
-                                ZipAr.CreateEntryFromFile(Path & "PCL\CustomSkin_Cliped.png",
-                                    $"assets/minecraft/textures/entity/player/{If(Setup.Get("LaunchSkinSlim"), "slim", "wide")}/{SkinName}.png")
-                            Next
-                        End If
-                    End Using
-                End Using
-                File.Delete(Path & "PCL\CustomSkin_Cliped.png")
-                '更改设置文件
-                IniClearCache(SetupFileAddress)
-                Dim EnabledResourcePack As String = ReadIni(SetupFileAddress, "resourcePacks", "[]").TrimStart("[").TrimEnd("]")
-                If NewTypeSetup Then
-                    If EnabledResourcePack = "" Then EnabledResourcePack = """vanilla"""
-                    Dim EnabledResourcePacks As New List(Of String)(EnabledResourcePack.Split(","))
-                    Dim NewResourcePacks As New List(Of String)
-                    For Each Res In EnabledResourcePacks
-                        If Res <> """file/PCL2 Skin.zip""" AndAlso Res <> "" Then NewResourcePacks.Add(Res)
-                    Next
-                    NewResourcePacks.Add("""file/PCL2 Skin.zip""")
-                    Dim Result As String = "[" & Join(NewResourcePacks, ",") & "]"
-                    WriteIni(SetupFileAddress, "resourcePacks", Result)
-                Else
-                    Dim EnabledResourcePacks As New List(Of String)(EnabledResourcePack.Split(","))
-                    Dim NewResourcePacks As New List(Of String)
-                    For Each Res In EnabledResourcePacks
-                        If Res <> """PCL2 Skin.zip""" AndAlso Res <> "" Then NewResourcePacks.Add(Res)
-                    Next
-                    NewResourcePacks.Add("""PCL2 Skin.zip""")
-                    Dim Result As String = "[" & Join(NewResourcePacks, ",") & "]"
-                    WriteIni(SetupFileAddress, "resourcePacks", Result)
-                End If
-IgnoreCustomSkin:
-            ElseIf File.Exists(ZipFileAddress) Then
-                McLaunchLog("正在清空自定义皮肤资源包")
-                '删除压缩文件
-                File.Delete(ZipFileAddress)
-                '更改设置文件
-                IniClearCache(SetupFileAddress)
-                Dim EnabledResourcePack As String = ReadIni(SetupFileAddress, "resourcePacks", "[]").TrimStart("[").TrimEnd("]")
-                If NewTypeSetup Then
-                    If EnabledResourcePack = "" Then EnabledResourcePack = """vanilla"""
-                    Dim EnabledResourcePacks As New List(Of String)(EnabledResourcePack.Split(","))
-                    EnabledResourcePacks.Remove("""file/PCL2 Skin.zip""")
-                    Dim Result As String = "[" & Join(EnabledResourcePacks, ",") & "]"
-                    WriteIni(SetupFileAddress, "resourcePacks", Result)
-                Else
-                    Dim EnabledResourcePacks As New List(Of String)(EnabledResourcePack.Split(","))
-                    EnabledResourcePacks.Remove("""PCL2 Skin.zip""")
-                    Dim Result As String = "[" & Join(EnabledResourcePacks, ",") & "]"
-                    WriteIni(SetupFileAddress, "resourcePacks", Result)
-                End If
+        'LabyMod 预处理
+        If ReadIni(McVersionCurrent.Path & "PCL\Setup.ini", "VersionLabyMod", "") <> "" AndAlso McVersionCurrent.PathIndie = McVersionCurrent.Path Then
+            Dim RootPath = McVersionCurrent.Path & "..\..\"
+            If Not Directory.Exists(RootPath & "labymod-neo") Then Directory.CreateDirectory(RootPath & "labymod-neo")
+            If Not Directory.Exists(McVersionCurrent.Path & "labymod-neo") Then Directory.CreateDirectory(McVersionCurrent.Path & "labymod-neo")
+            If Directory.Exists(McVersionCurrent.Path & "labymod-neo\libraries") Then
+                MoveDirectory(McVersionCurrent.Path & "labymod-neo\libraries", RootPath & "labymod-neo\libraries")
+                Thread.Sleep(50)
+                Directory.Delete(McVersionCurrent.Path & "labymod-neo\libraries", True)
+                CreateSymbolicLink(McVersionCurrent.Path & "labymod-neo\libraries", RootPath & "labymod-neo\libraries", &H2)
+            Else
+                CreateSymbolicLink(McVersionCurrent.Path & "labymod-neo\libraries", RootPath & "labymod-neo\libraries", &H2)
             End If
-        Catch ex As Exception
-            Log(ex, "离线皮肤资源包设置失败", LogLevel.Hint)
-        End Try
-
+            If Directory.Exists(McVersionCurrent.Path & "labymod-neo\assets") Then
+                MoveDirectory(McVersionCurrent.Path & "labymod-neo\assets", RootPath & "labymod-neo\assets")
+                Thread.Sleep(50)
+                Directory.Delete(McVersionCurrent.Path & "labymod-neo\assets", True)
+                CreateSymbolicLink(McVersionCurrent.Path & "labymod-neo\assets", RootPath & "labymod-neo\assets", &H2)
+            Else
+                CreateSymbolicLink(McVersionCurrent.Path & "labymod-neo\assets", RootPath & "labymod-neo\assets", &H2)
+            End If
+        End If
     End Sub
     Private Sub McLaunchCustom(Loader As LoaderTask(Of Integer, Integer))
 

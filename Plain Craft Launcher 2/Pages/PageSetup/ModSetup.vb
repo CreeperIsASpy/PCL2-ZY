@@ -40,10 +40,11 @@ Public Class ModSetup
         {"SystemDebugDelay", New SetupEntry(False, Source:=SetupSource.Registry)},
         {"SystemDebugSkipCopy", New SetupEntry(False, Source:=SetupSource.Registry)},
         {"SystemSystemCache", New SetupEntry("", Source:=SetupSource.Registry)},
-        {"SystemSystemUpdate", New SetupEntry(1)},
-        {"SystemSystemUpdateBranch", New SetupEntry(1)},
-        {"SystemSystemServer", New SetupEntry(1)},
+        {"SystemSystemUpdate", New SetupEntry(0)},
+        {"SystemSystemUpdateBranch", New SetupEntry(0)},
+        {"SystemSystemServer", New SetupEntry(0)},
         {"SystemSystemActivity", New SetupEntry(0)},
+        {"SystemSystemAnnouncement", New SetupEntry("", Source:=SetupSource.Registry)},
         {"SystemHttpProxy", New SetupEntry("", Source:=SetupSource.Registry, Encoded:=True)},
         {"SystemUseDefaultProxy", New SetupEntry(True, Source:=SetupSource.Registry)},
         {"SystemDisableHardwareAcceleration", New SetupEntry(False, Source:=SetupSource.Registry)},
@@ -59,10 +60,6 @@ Public Class ModSetup
         {"CacheAuthPass", New SetupEntry("", Source:=SetupSource.Registry, Encoded:=True)},
         {"CacheAuthServerServer", New SetupEntry("", Source:=SetupSource.Registry, Encoded:=True)},
         {"CompFavorites", New SetupEntry("[]", Source:=SetupSource.Registry)},
-        {"LoginRemember", New SetupEntry(True, Source:=SetupSource.Registry, Encoded:=True)},
-        {"LaunchSkinID", New SetupEntry("", Source:=SetupSource.Registry)},
-        {"LaunchSkinType", New SetupEntry(0, Source:=SetupSource.Registry)},
-        {"LaunchSkinSlim", New SetupEntry(False, Source:=SetupSource.Registry)},
         {"LaunchVersionSelect", New SetupEntry("")},
         {"LaunchFolderSelect", New SetupEntry("")},
         {"LaunchFolders", New SetupEntry("", Source:=SetupSource.Registry)},
@@ -93,6 +90,7 @@ Public Class ModSetup
         {"LinkFirstTimeNetTest", New SetupEntry(True, Source:=SetupSource.Registry)},
         {"LoginLegacyName", New SetupEntry("", Source:=SetupSource.Registry, Encoded:=True)},
         {"LoginMsJson", New SetupEntry("{}", Source:=SetupSource.Registry, Encoded:=True)}, '{UserName: OAuthToken, ...}
+        {"LoginMsAuthType", New SetupEntry("0", Source:=SetupSource.Registry)},
         {"ToolHelpChinese", New SetupEntry(True, Source:=SetupSource.Registry)},
         {"ToolDownloadThread", New SetupEntry(63, Source:=SetupSource.Registry)},
         {"ToolDownloadSpeed", New SetupEntry(42, Source:=SetupSource.Registry)},
@@ -110,6 +108,7 @@ Public Class ModSetup
         {"ToolUpdateSnapshot", New SetupEntry(False, Source:=SetupSource.Registry)},
         {"ToolUpdateReleaseLast", New SetupEntry("", Source:=SetupSource.Registry)},
         {"ToolUpdateSnapshotLast", New SetupEntry("", Source:=SetupSource.Registry)},
+        {"ToolDownloadAutoSelectVersion", New SetupEntry(True, Source:=SetupSource.Registry)},
         {"UiLauncherTransparent", New SetupEntry(600)}, '避免与 PCL1 设置冲突（UiLauncherOpacity）
         {"UiLauncherHue", New SetupEntry(180)},
         {"UiLauncherSat", New SetupEntry(80)},
@@ -120,7 +119,6 @@ Public Class ModSetup
         {"UiLauncherThemeHide", New SetupEntry("0|1|2|3|4", Source:=SetupSource.Registry, Encoded:=True)},
         {"UiLauncherThemeHide2", New SetupEntry("0|1|2|3|4", Source:=SetupSource.Registry, Encoded:=True)},
         {"UiLauncherLogo", New SetupEntry(True)},
-        {"UiLauncherEmail", New SetupEntry(False)},
         {"UiLauncherCEHint", New SetupEntry(True, Source:=SetupSource.Registry)},
         {"UiBackgroundColorful", New SetupEntry(True)},
         {"UiBackgroundOpacity", New SetupEntry(1000)},
@@ -155,6 +153,13 @@ Public Class ModSetup
         {"UiHiddenOtherVote", New SetupEntry(True)},
         {"UiHiddenOtherAbout", New SetupEntry(False)},
         {"UiHiddenOtherTest", New SetupEntry(False)},
+        {"UiHiddenVersionEdit", New SetupEntry(False)},
+        {"UiHiddenVersionExport", New SetupEntry(False)},
+        {"UiHiddenVersionSave", New SetupEntry(False)},
+        {"UiHiddenVersionScreenshot", New SetupEntry(False)},
+        {"UiHiddenVersionMod", New SetupEntry(False)},
+        {"UiHiddenVersionResourcePack", New SetupEntry(False)},
+        {"UiHiddenVersionShader", New SetupEntry(False)},
         {"UiAniFPS", New SetupEntry(59, Source:=SetupSource.Registry)},
         {"UiFont", New SetupEntry("")},
         {"VersionAdvanceJvm", New SetupEntry("", Source:=SetupSource.Version)},
@@ -488,30 +493,6 @@ Public Class ModSetup
         FrmSetupLaunch.RamType(Type)
     End Sub
 
-    '离线皮肤
-    Public Sub LaunchSkinType(Value As Integer)
-        RunInUi(Sub()
-                    If Not IsNothing(FrmSetupLaunch) Then
-                        Select Case Value
-                            Case 0, 1, 2 '默认
-                                FrmSetupLaunch.PanSkinID.Visibility = Visibility.Collapsed
-                                FrmSetupLaunch.PanSkinChange.Visibility = Visibility.Collapsed
-                            Case 3 '正版
-                                FrmSetupLaunch.PanSkinID.Visibility = Visibility.Visible
-                                FrmSetupLaunch.PanSkinChange.Visibility = Visibility.Collapsed
-                            Case 4 '自定义
-                                FrmSetupLaunch.PanSkinID.Visibility = Visibility.Collapsed
-                                FrmSetupLaunch.PanSkinChange.Visibility = Visibility.Visible
-                        End Select
-                        FrmSetupLaunch.CardSkin.TriggerForceResize()
-                    End If
-                    'PageLaunchLeft.SkinLegacy.Start()
-                End Sub)
-    End Sub
-    Public Sub LaunchSkinID(Value As String)
-        'PageLaunchLeft.SkinLegacy.Start()
-    End Sub
-
 #End Region
 
 #Region "Tool"
@@ -802,6 +783,27 @@ Public Class ModSetup
         PageSetupUI.HiddenRefresh()
     End Sub
     Public Sub UiHiddenOtherTest(Value As Boolean)
+        PageSetupUI.HiddenRefresh()
+    End Sub
+    Public Sub UiHiddenVersionEdit(Value As Boolean)
+        PageSetupUI.HiddenRefresh()
+    End Sub
+    Public Sub UiHiddenVersionExport(Value As Boolean)
+        PageSetupUI.HiddenRefresh()
+    End Sub
+    Public Sub UiHiddenVersionSave(Value As Boolean)
+        PageSetupUI.HiddenRefresh()
+    End Sub
+    Public Sub UiHiddenVersionScreenshot(Value As Boolean)
+        PageSetupUI.HiddenRefresh()
+    End Sub
+    Public Sub UiHiddenVersionMod(Value As Boolean)
+        PageSetupUI.HiddenRefresh()
+    End Sub
+    Public Sub UiHiddenVersionResourcePack(Value As Boolean)
+        PageSetupUI.HiddenRefresh()
+    End Sub
+    Public Sub UiHiddenVersionShader(Value As Boolean)
         PageSetupUI.HiddenRefresh()
     End Sub
 
