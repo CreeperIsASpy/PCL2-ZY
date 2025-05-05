@@ -53,8 +53,7 @@ Public Class PageSetupUI
             SliderLauncherSat.Value = Setup.Get("UiLauncherSat")
             SliderLauncherDelta.Value = Setup.Get("UiLauncherDelta")
             SliderLauncherLight.Value = Setup.Get("UiLauncherLight")
-            'If Setup.Get("UiLauncherTheme") <= 14 Then CType(FindName("RadioLauncherTheme" & Setup.Get("UiLauncherTheme")), MyRadioBox).Checked = True
-            RadioLauncherTheme14.Checked = True
+            CType(FindName("RadioLauncherTheme" & Setup.Get("UiLauncherTheme")), MyRadioBox).Checked = True
             CheckLauncherLogo.Checked = Setup.Get("UiLauncherLogo")
             CheckLauncherHint.Checked = Setup.Get("UiLauncherCEHint")
             CheckLauncherEmail.Checked = Setup.Get("UiLauncherEmail")
@@ -470,11 +469,9 @@ Refresh:
 
     '主题
     Private Sub RadioLauncherTheme0_Checked(sender As Object, e As RouteEventArgs) Handles RadioLauncherTheme0.Changed
-        ColorHue = 215
-        ColorLightAdjust = 51
-        ColorSat = 91
-        ColorHueTopbarDelta = 0
-        ThemeRefresh()
+        ThemeLoad(0)
+
+        Setup.Set("UiLauncherTheme", 0)
     End Sub
 
     '主题自定义
@@ -500,12 +497,17 @@ Refresh:
             LabLauncherLight.Visibility = Visibility.Collapsed
             SliderLauncherLight.Visibility = Visibility.Collapsed
         End If
+        HSL_Change()
         CardLauncher.TriggerForceResize()
     End Sub
     Private Sub HSL_Change() Handles SliderLauncherHue.Change, SliderLauncherLight.Change, SliderLauncherSat.Change, SliderLauncherDelta.Change
         If AniControlEnabled <> 0 OrElse SliderLauncherSat Is Nothing OrElse Not SliderLauncherSat.IsLoaded Then Exit Sub
         ColorHue = SliderLauncherHue.Value
-        ColorLightAdjust = SliderLauncherLight.Value
+        If SliderLauncherLight.Value <> 100 Then
+            ColorLightAdjust = (SliderLauncherLight.Value - 100)
+        ElseIf SliderLauncherLight.Value = 100 Then
+            ColorLightAdjust = 0
+        End If
         ColorSat = SliderLauncherSat.Value
         ColorHueTopbarDelta = SliderLauncherDelta.Value
         ThemeRefresh()
@@ -707,10 +709,14 @@ Refresh:
         End Function
         SliderLauncherLight.GetHintText =
         Function(Value As Integer)
-            If Value > 0 Then
-                Return "+" & Value
-            Else
+            If Value > 100 Then
+                Return "+" & (Value - 100)
+            ElseIf Value = 100 Then
                 Return 0
+            ElseIf Value < 100 Then
+                Return "-" & (100 - Value)
+            Else
+                Return Value
             End If
         End Function
         SliderBackgroundOpacity.GetHintText = Function(v) Math.Round(v * 0.1) & "%"

@@ -378,7 +378,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     Public Color5Hsl As MyColor.HslColor = Color5.ToHsl()
     Public ColorBg0Hsl As MyColor.HslColor = ColorBg0.ToHsl()
 
-    Public ThemeNow As Integer = 12
+    Public ThemeNow As Integer = 0
     Public ColorHue As Integer = If(IsDarkMode, 200, 210), ColorSat As Integer = If(IsDarkMode, 100, 85), ColorLightAdjust As Integer = If(IsDarkMode, 0, 15), ColorHueTopbarDelta As Object = 0
     Public ThemeDontClick As Integer = 0
 
@@ -387,22 +387,41 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     ' 定义自定义事件
     Public Event ThemeChanged As EventHandler(Of Boolean)
 
+    Public Sub ThemeLoad(Optional NewTheme As Integer = 0)
+        Select Case NewTheme
+            Case 0 To 4
+                ColorHue = 215
+                ColorLightAdjust = 1
+                ColorSat = 91
+                ColorHueTopbarDelta = 0
+            Case Else
+                ColorHue = 214
+                ColorLightAdjust = 1
+                ColorSat = 91
+                ColorHueTopbarDelta = 0
+        End Select
+
+        Setup.Set("UiLauncherTheme", NewTheme)
+    End Sub
+
     Public Sub ThemeLoadPanTitle()
-        If ThemeNow = 13 Then
+        If (ThemeNow > 4) AndAlso (ThemeNow <> 14) Then  '隐藏主题
             Dim BgImg = New ImageDrawing With {
                 .Rect = New Rect(0, 0, FrmMain.PanTitle.ActualWidth, 48),
-                .ImageSource = New BitmapImage(New Uri("pack://application:,,,/Plain Craft Launcher 2;component/Images/Themes/13.png", UriKind.Absolute))
+                .ImageSource = New BitmapImage(New Uri($"pack://application:,,,/Plain Craft Launcher 2;component/Images/Themes/{ThemeNow}.png", UriKind.Absolute))
             }
             Dim BgImgSource = New DrawingImage(BgImg)
             BgImgSource.Freeze()
             Dim BgImgControl = New Image With {
-                .Stretch = Stretch.UniformToFill,
-                .Source = BgImgSource,
-                .IsHitTestVisible = False,
-                .Opacity = 0.5
+                    .Stretch = Stretch.UniformToFill,
+                    .Source = BgImgSource,
+                    .IsHitTestVisible = False,
+                    .Opacity = 0.5
             }
-            FrmMain.PanTitle.Children.Add(BgImgControl)
-        Else
+            If Not FrmMain.PanTitle.Children.Contains(BgImgControl) Then
+                FrmMain.PanTitle.Children.Add(BgImgControl)
+            End If
+        Else  '普通主题使用空 ImageSource
             Dim BgImg = Nothing
             Dim BgImgSource = New DrawingImage(BgImg)
             BgImgSource.Freeze()
@@ -422,6 +441,10 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     End Sub
 
     Public Sub ThemeRefresh(Optional NewTheme As Integer = -1)
+        ThemeNow = If(NewTheme > -1, NewTheme, Setup.Get("UiLauncherTheme"))
+        If ThemeNow <> 14 Then
+            ThemeLoad(ThemeNow)
+        End If
         RaiseThemeChanged(IsDarkMode)
         ThemeRefreshColor()
         ThemeRefreshMain()
@@ -434,7 +457,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         End If
     End Function
     Public Sub ThemeRefreshColor()
-        Dim sat = ColorSat / 2
+        Dim sat = ColorSat
         ColorDark1 = ColorDark1.FromHSL2(ColorHue, sat, ColorDark1Hsl.L)
         ColorDark2 = ColorDark2.FromHSL2(ColorHue, sat, ColorDark2Hsl.L)
         ColorDark3 = ColorDark3.FromHSL2(ColorHue, sat, ColorDark3Hsl.L)
