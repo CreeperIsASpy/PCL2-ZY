@@ -23,8 +23,6 @@ Friend Module ModSecret
 #Else
     Public Const OAuthClientId As String = "c14b0370-8d75-42f8-b329-5b60d39e319f"
     Public OAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "")
-#Else
-    Public Const OAuthClientId As String = "c14b0370-8d75-42f8-b329-5b60d39e319f"
 #End If
 
     'CurseForge API Key
