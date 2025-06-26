@@ -298,9 +298,6 @@ Public Class FormMain
                 Setup.Set("LaunchArgumentIndieV2", Setup.GetDefault("LaunchArgumentIndieV2"))
             End If
         End If
-        '刷新主题
-        ThemeCheckAll(False)
-        Setup.Load("UiLauncherTheme")
         '加载 UI
         InitializeComponent()
         Opacity = 0
@@ -370,7 +367,9 @@ Public Class FormMain
             Case 2
                 IsDarkMode = IsSystemInDarkMode()
         End Select
-
+        '刷新主题
+        ThemeCheckAll(False)
+        Setup.Load("UiLauncherTheme")
         '加载自定义主题
         ColorHue = Setup.Get("UiLauncherHue")
         ColorLightAdjust = Setup.Get("UiLauncherLight")

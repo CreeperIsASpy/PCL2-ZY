@@ -395,6 +395,11 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
                 ColorLightAdjust = 1
                 ColorSat = 91
                 ColorHueTopbarDelta = 0
+            Case 7
+                ColorHue = 285
+                ColorLightAdjust = 0
+                ColorSat = 48
+                ColorHueTopbarDelta = 0
             Case Else
                 ColorHue = 214
                 ColorLightAdjust = 1
@@ -407,32 +412,9 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
 
     Public Sub ThemeLoadPanTitle()
         If (ThemeNow > 4) AndAlso (ThemeNow <> 14) Then  '隐藏主题
-            Dim BgImg = New ImageDrawing With {
-                .Rect = New Rect(0, 0, FrmMain.PanTitle.ActualWidth, 48),
-                .ImageSource = New BitmapImage(New Uri($"pack://application:,,,/Plain Craft Launcher 2;component/Images/Themes/{ThemeNow}.png", UriKind.Absolute))
-            }
-            Dim BgImgSource = New DrawingImage(BgImg)
-            BgImgSource.Freeze()
-            Dim BgImgControl = New Image With {
-                    .Stretch = Stretch.UniformToFill,
-                    .Source = BgImgSource,
-                    .IsHitTestVisible = False,
-                    .Opacity = 0.5
-            }
-            If Not FrmMain.PanTitle.Children.Contains(BgImgControl) Then
-                FrmMain.PanTitle.Children.Add(BgImgControl)
-            End If
+            FrmMain.ImgTitle.Source = $"pack://application:,,,/Plain Craft Launcher 2;component/Images/Themes/{ThemeNow}.png"
         Else  '普通主题使用空 ImageSource
-            Dim BgImg = Nothing
-            Dim BgImgSource = New DrawingImage(BgImg)
-            BgImgSource.Freeze()
-            Dim BgImgControl = New Image With {
-                .Stretch = Stretch.UniformToFill,
-                .Source = BgImgSource,
-                .IsHitTestVisible = False,
-                .Opacity = 0.5
-            }
-            FrmMain.PanTitle.Children.Add(BgImgControl)
+            FrmMain.ImgTitle.Source = ""
         End If
     End Sub
 
@@ -446,6 +428,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         If ThemeNow <> 14 Then
             ThemeLoad(ThemeNow)
         End If
+        ThemeLoadPanTitle()
         RaiseThemeChanged(IsDarkMode)
         ThemeRefreshColor()
         ThemeRefreshMain()
