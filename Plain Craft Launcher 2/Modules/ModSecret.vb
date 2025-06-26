@@ -1,31 +1,52 @@
 '由于包含加解密等安全信息，本文件中的部分代码已被删除
 
 Imports System.ComponentModel
-Imports System.Net
-Imports System.Reflection
-Imports System.Text
+Imports System.Net.Http
 Imports System.Security.Cryptography
-Imports NAudio.Midi
 Imports System.Management
-Imports System
 Imports System.IO.Compression
+Imports PCL.Core.Helper
 
 Friend Module ModSecret
 
 #Region "杂项"
 
-#If RELEASE Or BETA Then
-    Public Const RegFolder As String = "PCLCE" 'PCL 社区版的注册表与 PCL 的注册表隔离，以防数据冲突
-#Else
+#If DEBUG Then
     Public Const RegFolder As String = "PCLCEDebug" '社区开发版的注册表与社区常规版的注册表隔离，以防数据冲突
+#Else
+    Public Const RegFolder As String = "PCLCE" 'PCL 社区版的注册表与 PCL 的注册表隔离，以防数据冲突
 #End If
 
     '用于微软登录的 ClientId
+#If DEBUG Then
+    Public OAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "")
+#Else
     Public Const OAuthClientId As String = "c14b0370-8d75-42f8-b329-5b60d39e319f"
+    Public OAuthClientId As String = If(Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID"), "")
+#Else
+    Public Const OAuthClientId As String = "c14b0370-8d75-42f8-b329-5b60d39e319f"
+#End If
+
     'CurseForge API Key
+#If DEBUG Then
+    Public CurseForgeAPIKey = If(Environment.GetEnvironmentVariable("PCL_CURSEFORGE_API_KEY"), "")
+#Else
     Public Const CurseForgeAPIKey As String = ""
-    ' LittleSkin OAuth ClientId
+#End If
+
+    'LittleSkin OAuth ClientId
+#If DEBUG Then
+    Public LittleSkinClientId = If(Environment.GetEnvironmentVariable("PCL_LITTLESKIN_CLIENT_ID"), "")
+#Else
     Public Const LittleSkinClientId As String = ""
+#End If
+
+    '遥测鉴权密钥
+#If DEBUG Then
+    Public TelemetryKey = If(Environment.GetEnvironmentVariable("PCL_TELEMETRY_KEY"), "")
+#Else
+    Public Const TelemetryKey As String = ""
+#End If
 
     Friend Sub SecretOnApplicationStart()
         '提升 UI 线程优先级
@@ -112,8 +133,8 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         Dim code As String
         Dim rawCode As String = SecretGetRawCode()
         Try
-            Using MD5 As MD5 = MD5.Create()
-                Dim buffer = MD5.ComputeHash(Encoding.UTF8.GetBytes(rawCode))
+            Using SHA As SHA256 = SHA256.Create()
+                Dim buffer = SHA.ComputeHash(Encoding.UTF8.GetBytes(rawCode))
                 code = BitConverter.ToString(buffer).Replace("-", "")
             End Using
             code = code.Substring(6, 16)
@@ -153,26 +174,6 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         If Not DataList.Any(Function(d) d.Contains("-Dlog4j2.formatMsgNoLookups=true")) Then DataList.Add("-Dlog4j2.formatMsgNoLookups=true")
     End Sub
 
-    ''' <summary>
-    ''' 打码字符串中的 AccessToken。
-    ''' </summary>
-    Friend Function SecretFilter(Raw As String, FilterChar As Char) As String
-        '打码 "accessToken " 后的内容
-        If Raw.Contains("accessToken ") Then
-            For Each Token In RegexSearch(Raw, "(?<=accessToken ([^ ]{5}))[^ ]+(?=[^ ]{5})")
-                Raw = Raw.Replace(Token, New String(FilterChar, Token.Count))
-            Next
-        End If
-        '打码当前登录的结果
-        Dim AccessToken As String = McLoginLoader.Output.AccessToken
-        If AccessToken Is Nothing OrElse AccessToken.Length < 10 OrElse Not Raw.ContainsF(AccessToken, True) OrElse
-            McLoginLoader.Output.Uuid = McLoginLoader.Output.AccessToken Then 'UUID 和 AccessToken 一样则不打码
-            Return Raw
-        Else
-            Return Raw.Replace(AccessToken, Strings.Left(AccessToken, 5) & New String(FilterChar, AccessToken.Length - 10) & Strings.Right(AccessToken, 5))
-        End If
-    End Function
-
 #End Region
 
 #Region "网络鉴权"
@@ -184,16 +185,19 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     ''' <summary>
     ''' 设置 Headers 的 UA、Referer。
     ''' </summary>
-    Friend Sub SecretHeadersSign(Url As String, ByRef Client As WebClient, Optional UseBrowserUserAgent As Boolean = False)
-        If Url.Contains("baidupcs.com") OrElse Url.Contains("baidu.com") Then
-            Client.Headers("User-Agent") = "LogStatistic" '#4951
-        ElseIf UseBrowserUserAgent Then
-            Client.Headers("User-Agent") = "PCL2/" & UpstreamVersion & "." & VersionBranchCode & " PCLCE/" & VersionStandardCode & " Mozilla/5.0 AppleWebKit/537.36 Chrome/63.0.3239.132 Safari/537.36"
-        Else
-            Client.Headers("User-Agent") = "PCL2/" & UpstreamVersion & "." & VersionBranchCode & " PCLCE/" & VersionStandardCode
-        End If
-        Client.Headers("Referer") = "http://" & VersionCode & ".ce.open.pcl2.server/"
-        If Url.Contains("api.curseforge.com") Then Client.Headers("x-api-key") = CurseForgeAPIKey
+    Friend Sub SecretHeadersSign(Url As String, ByRef Client As HttpRequestMessage, Optional UseBrowserUserAgent As Boolean = False)
+        If Url.Contains("api.curseforge.com") Then Client.Headers.Add("x-api-key", CurseForgeAPIKey)
+        Client.Headers.Add("User-Agent",
+        If(Url.Contains("baidupcs.com") OrElse Url.Contains("baidu.com"),
+                "LogStatistic",
+                If(UseBrowserUserAgent,
+                    $"PCL2/{UpstreamVersion}.{VersionBranchCode} PCLCE/{VersionStandardCode} Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0",
+                    $"PCL2/{UpstreamVersion}.{VersionBranchCode} PCLCE/{VersionStandardCode}"
+                )
+            ))
+
+        Client.Headers.Add("Referer", "http://" & VersionCode & ".ce.open.pcl2.server/")
+        If Url.Contains("pcl2ce.pysio.online/post") AndAlso Not String.IsNullOrEmpty(TelemetryKey) Then Client.Headers.Add("Authorization", TelemetryKey)
     End Sub
     ''' <summary>
     ''' 设置 Headers 的 UA、Referer。
@@ -208,6 +212,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         End If
         Request.Referer = "http://" & VersionCode & ".ce.open.pcl2.server/"
         If Url.Contains("api.curseforge.com") Then Request.Headers("x-api-key") = CurseForgeAPIKey
+        If Url.Contains("pcl2ce.pysio.online/post") Then Request.Headers("Authorization") = TelemetryKey
     End Sub
 
 #End Region
@@ -311,76 +316,257 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
 #End Region
 
 #Region "主题"
+    
+#If DEBUG Then
+    Public ReadOnly EnableCustomTheme As Boolean = Environment.GetEnvironmentVariable("PCL_CUSTOM_THEME") IsNot Nothing
+    Private ReadOnly EnvThemeHue = Environment.GetEnvironmentVariable("PCL_THEME_HUE") '0 ~ 359
+    Private ReadOnly EnvThemeSat = Environment.GetEnvironmentVariable("PCL_THEME_SAT") '0 ~ 100
+    Private ReadOnly EnvThemeLight = Environment.GetEnvironmentVariable("PCL_THEME_LIGHT") '-20 ~ 20
+    Private ReadOnly EnvThemeHueDelta = Environment.GetEnvironmentVariable("PCL_THEME_HUE_DELTA") '-90 ~ 90
+    Private ReadOnly CustomThemeHue = If(EnvThemeHue Is Nothing, Nothing, CType(Integer.Parse(EnvThemeHue), Integer?))
+    Private ReadOnly CustomThemeSat = If(EnvThemeSat Is Nothing, Nothing, CType(Integer.Parse(EnvThemeSat), Integer?))
+    Private ReadOnly CustomThemeLight = If(EnvThemeLight Is Nothing, Nothing, CType(Integer.Parse(EnvThemeLight), Integer?))
+    Private ReadOnly CustomThemeHueDelta = If(EnvThemeHueDelta Is Nothing, Nothing, CType(Integer.Parse(EnvThemeHueDelta), Integer?))
+    
+    Public ReadOnly Property ColorGray1 As MyColor
+        Get
+            Return If(StaticColors?.Gray1, LightStaticColors.Gray1)
+        End Get
+    End Property
+    
+    Public ReadOnly Property ColorGray4 As MyColor
+        Get
+            Return If(StaticColors?.Gray4, LightStaticColors.Gray4)
+        End Get
+    End Property
 
-    Public IsDarkMode As Boolean = False
+    Public ReadOnly Property ColorGray5 As MyColor
+        Get
+            Return If(StaticColors?.Gray5, LightStaticColors.Gray5)
+        End Get
+    End Property
+    
+    Public ReadOnly Property ColorSemiTransparent As MyColor
+        Get
+            Return DynamicColors.SemiTransparent
+        End Get
+    End Property
 
-    Public ColorDark1 As New MyColor(235, 235, 235)
-    Public ColorDark2 As New MyColor(102, 204, 255)
-    Public ColorDark3 As New MyColor(51, 187, 255)
-    Public ColorDark6 As New MyColor(93, 101, 103)
-    Public ColorDark7 As New MyColor(69, 75, 79)
-    Public ColorDark8 As New MyColor(59, 64, 65)
-    Public ColorLight1 As New MyColor(52, 61, 74)
-    Public ColorLight2 As New MyColor(11, 91, 203)
-    Public ColorLight3 As New MyColor(19, 112, 243)
-    Public ColorLight6 As New MyColor(213, 230, 253)
-    Public ColorLight7 As New MyColor(222, 236, 253)
-    Public ColorLight8 As New MyColor(234, 242, 254)
-    Public Color1 As MyColor = If(IsDarkMode, ColorDark1, ColorLight1)
-    Public Color2 As MyColor = If(IsDarkMode, ColorDark2, ColorLight2)
-    Public Color3 As MyColor = If(IsDarkMode, ColorDark3, ColorLight3)
-    'Public Color2 As New MyColor(11, 91, 203)
-    'Public Color3 As New MyColor(19, 112, 243)
-    Public Color4 As New MyColor(72, 144, 245)
-    Public Color5 As New MyColor(150, 192, 249)
-    Public Color6 As MyColor = If(IsDarkMode, ColorDark6, ColorLight6)
-    Public Color7 As MyColor = If(IsDarkMode, ColorDark7, ColorLight7)
-    Public Color8 As MyColor = If(IsDarkMode, ColorDark8, ColorLight8)
-    Public ColorBg0 As New MyColor(150, 192, 249)
-    Public ColorBg1 As New MyColor(190, Color7)
-    Public ColorGrayDark1 As New MyColor(245, 245, 245)
-    Public ColorGrayDark2 As New MyColor(240, 240, 240)
-    Public ColorGrayDark3 As New MyColor(235, 235, 235)
-    Public ColorGrayDark4 As New MyColor(204, 204, 204)
-    Public ColorGrayDark5 As New MyColor(166, 166, 166)
-    Public ColorGrayDark6 As New MyColor(140, 140, 140)
-    Public ColorGrayDark7 As New MyColor(115, 115, 115)
-    Public ColorGrayDark8 As New MyColor(64, 64, 64)
-    Public ColorGrayLight1 As New MyColor(64, 64, 64)
-    Public ColorGrayLight2 As New MyColor(115, 115, 115)
-    Public ColorGrayLight3 As New MyColor(140, 140, 140)
-    Public ColorGrayLight4 As New MyColor(166, 166, 166)
-    Public ColorGrayLight5 As New MyColor(204, 204, 204)
-    Public ColorGrayLight6 As New MyColor(235, 235, 235)
-    Public ColorGrayLight7 As New MyColor(240, 240, 240)
-    Public ColorGrayLight8 As New MyColor(245, 245, 245)
-    Public ColorGray1 As MyColor = If(IsDarkMode, ColorGrayDark1, ColorGrayLight1)
-    Public ColorGray2 As MyColor = If(IsDarkMode, ColorGrayDark2, ColorGrayLight2)
-    Public ColorGray3 As MyColor = If(IsDarkMode, ColorGrayDark3, ColorGrayLight3)
-    Public ColorGray4 As MyColor = If(IsDarkMode, ColorGrayDark4, ColorGrayLight4)
-    Public ColorGray5 As MyColor = If(IsDarkMode, ColorGrayDark5, ColorGrayLight5)
-    Public ColorGray6 As MyColor = If(IsDarkMode, ColorGrayDark6, ColorGrayLight6)
-    Public ColorGray7 As MyColor = If(IsDarkMode, ColorGrayDark7, ColorGrayLight7)
-    Public ColorGray8 As MyColor = If(IsDarkMode, ColorGrayDark8, ColorGrayLight8)
-    Public ColorSemiTransparent As New MyColor(1, Color8)
-    Public ColorDark1Hsl As MyColor.HslColor = ColorDark1.ToHsl()
-    Public ColorDark2Hsl As MyColor.HslColor = ColorDark2.ToHsl()
-    Public ColorDark3Hsl As MyColor.HslColor = ColorDark3.ToHsl()
-    Public ColorDark6Hsl As MyColor.HslColor = ColorDark6.ToHsl()
-    Public ColorDark7Hsl As MyColor.HslColor = ColorDark7.ToHsl()
-    Public ColorDark8Hsl As MyColor.HslColor = ColorDark8.ToHsl()
-    Public ColorLight1Hsl As MyColor.HslColor = ColorLight1.ToHsl()
-    Public ColorLight2Hsl As MyColor.HslColor = ColorLight2.ToHsl()
-    Public ColorLight3Hsl As MyColor.HslColor = ColorLight3.ToHsl()
-    Public ColorLight6Hsl As MyColor.HslColor = ColorLight6.ToHsl()
-    Public ColorLight7Hsl As MyColor.HslColor = ColorLight7.ToHsl()
-    Public ColorLight8Hsl As MyColor.HslColor = ColorLight8.ToHsl()
-    Public Color4Hsl As MyColor.HslColor = Color4.ToHsl()
-    Public Color5Hsl As MyColor.HslColor = Color5.ToHsl()
-    Public ColorBg0Hsl As MyColor.HslColor = ColorBg0.ToHsl()
+    Public Class ThemeStyle
+        Public Property L1 As Integer
+        Public Property L2 As Integer
+        Public Property L3 As Integer
+        Public Property L4 As Integer
+        Public Property L5 As Integer
+        Public Property L6 As Integer
+        Public Property L7 As Integer
+        Public Property L8 As Integer
+        Public Property G1 As Integer
+        Public Property G2 As Integer
+        Public Property G3 As Integer
+        
+        Public ReadOnly Property Lb0 As Integer
+            Get
+                Return L5
+            End Get
+        End Property
+        
+        Public ReadOnly Property Lb1 As Integer
+            Get
+                Return L7
+            End Get
+        End Property
+        
+        Public Property LaP As Double = 1
+        Public Property LaN As Double = 1
+        
+        Public Property Sa0 As Double
+        Public Property Sa1 As Double
+    End Class
+    
+    Private ReadOnly Property NewColor As MyColor
+        Get
+            Return New MyColor()
+        End Get
+    End Property
+    
+    Public Class ThemeStyleStaticColors
+        Public ReadOnly Gray1 As Color
+        Public ReadOnly Gray2 As Color
+        Public ReadOnly Gray3 As Color
+        Public ReadOnly Gray4 As Color
+        Public ReadOnly Gray5 As Color
+        Public ReadOnly Gray6 As Color
+        Public ReadOnly Gray7 As Color
+        Public ReadOnly Gray8 As Color
+        Public ReadOnly White As Color
+        Public ReadOnly HalfWhite As Color
+        Public ReadOnly SemiWhite As Color
+        Public ReadOnly Transparent As Color
+        Public ReadOnly Memory As Color
+        Public ReadOnly Tooltip As Color
+        Public ReadOnly BackgroundTransparentSidebar As Color
+        
+        Public ReadOnly Gray1Brush As SolidColorBrush
+        Public ReadOnly Gray2Brush As SolidColorBrush
+        Public ReadOnly Gray3Brush As SolidColorBrush
+        Public ReadOnly Gray4Brush As SolidColorBrush
+        Public ReadOnly Gray5Brush As SolidColorBrush
+        Public ReadOnly Gray6Brush As SolidColorBrush
+        Public ReadOnly Gray7Brush As SolidColorBrush
+        Public ReadOnly Gray8Brush As SolidColorBrush
+        Public ReadOnly WhiteBrush As SolidColorBrush
+        Public ReadOnly HalfWhiteBrush As SolidColorBrush
+        Public ReadOnly SemiWhiteBrush As SolidColorBrush
+        Public ReadOnly TransparentBrush As SolidColorBrush
+        Public ReadOnly MemoryBrush As SolidColorBrush
+        Public ReadOnly TooltipBrush As SolidColorBrush
+        Public ReadOnly BackgroundTransparentSidebarBrush As SolidColorBrush
+        
+        Public Sub New(style As ThemeStyle)
+            Gray1 = NewColor.FromHSL2(0, 0, style.L1)
+            Gray2 = NewColor.FromHSL2(0, 0, style.L2)
+            Gray3 = NewColor.FromHSL2(0, 0, style.L3)
+            Gray4 = NewColor.FromHSL2(0, 0, style.L4)
+            Gray5 = NewColor.FromHSL2(0, 0, style.L5)
+            Gray6 = NewColor.FromHSL2(0, 0, style.L6)
+            Gray7 = NewColor.FromHSL2(0, 0, style.L7)
+            Gray8 = NewColor.FromHSL2(0, 0, style.L8)
+            White = NewColor.FromHSL2(0, 0, style.G2)
+            HalfWhite = NewColor.FromHSL2(0, 0, style.G2).Alpha(&H55)
+            SemiWhite = NewColor.FromHSL2(0, 0, style.G2).Alpha(&HDB)
+            Transparent = NewColor.FromHSL2(0, 0, style.L8).Alpha(0)
+            Memory = NewColor.FromHSL2(0, 0, style.G3)
+            Tooltip = NewColor.FromHSL2(0, 0, style.G2).Alpha(&HE5)
+            BackgroundTransparentSidebar = NewColor.FromHSL2(0, 0, style.G1).Alpha(&HD2)
+            
+            Gray1Brush = New SolidColorBrush(Gray1)
+            Gray2Brush = New SolidColorBrush(Gray2)
+            Gray3Brush = New SolidColorBrush(Gray3)
+            Gray4Brush = New SolidColorBrush(Gray4)
+            Gray5Brush = New SolidColorBrush(Gray5)
+            Gray6Brush = New SolidColorBrush(Gray6)
+            Gray7Brush = New SolidColorBrush(Gray7)
+            Gray8Brush = New SolidColorBrush(Gray8)
+            WhiteBrush = New SolidColorBrush(White)
+            HalfWhiteBrush = New SolidColorBrush(HalfWhite)
+            SemiWhiteBrush = New SolidColorBrush(SemiWhite)
+            TransparentBrush = New SolidColorBrush(Transparent)
+            MemoryBrush = New SolidColorBrush(Memory)
+            TooltipBrush = New SolidColorBrush(Tooltip)
+            BackgroundTransparentSidebarBrush = New SolidColorBrush(BackgroundTransparentSidebar)
+        End Sub
+    End Class
 
-    Public ThemeNow As Integer = 0
-    Public ColorHue As Integer = If(IsDarkMode, 200, 210), ColorSat As Integer = If(IsDarkMode, 100, 85), ColorLightAdjust As Integer = If(IsDarkMode, 0, 15), ColorHueTopbarDelta As Object = 0
+    '基于对数分布的亮度调整（看起来很高级，实际上对比线性分布性能稀烂）
+    Private Const HighestLight = 95
+    Private Const LowestLight = 10
+    Private Const LogLightBase = 1 - LowestLight
+    Private ReadOnly LogLightBaseRate = Math.Log(HighestLight + 1)
+    Public Function AdjustLight(origin As Integer, adjust As Integer, Optional style As ThemeStyle = Nothing) As Integer
+        If origin < 0 Then Return 0 '保证不炸定义域（虽然不会有人传个负的亮度过来吧，应该...不会吧）
+        If adjust = 0 Then Return origin '节省性能
+        If origin > HighestLight Or origin < LowestLight Then Return origin '亮度阈值
+        If style Is Nothing Then style = CurrentStyle
+        adjust *= If(adjust > 0, style.LaP, style.LaN) '根据当前 style 调整 adjust 值
+        '对数分布 -> 线性分布
+        Dim originF = Math.Log(origin + LogLightBase) / LogLightBaseRate '源 [0,1]
+        Dim adjustF = adjust / 20.0 '参数 [-1,1]
+        Dim resultF = originF + adjustF * If (adjustF > 0, 1 - originF, originF) '线性插值
+        '线性分布 -> 对数分布
+        Dim result As Integer = Math.Exp(resultF * LogLightBaseRate) - LogLightBase
+        Return result
+    End Function
+
+    Public Class ThemeStyleDynamicColors
+        Public ReadOnly Color1 As Color
+        Public ReadOnly Color2 As Color
+        Public ReadOnly Color3 As Color
+        Public ReadOnly Color4 As Color
+        Public ReadOnly Color5 As Color
+        Public ReadOnly Color6 As Color
+        Public ReadOnly Color7 As Color
+        Public ReadOnly Color8 As Color
+        Public ReadOnly ColorBg0 As Color
+        Public ReadOnly ColorBg1 As Color
+        Public ReadOnly SemiTransparent As Color
+        
+        Public ReadOnly Color1Brush As SolidColorBrush
+        Public ReadOnly Color2Brush As SolidColorBrush
+        Public ReadOnly Color3Brush As SolidColorBrush
+        Public ReadOnly Color4Brush As SolidColorBrush
+        Public ReadOnly Color5Brush As SolidColorBrush
+        Public ReadOnly Color6Brush As SolidColorBrush
+        Public ReadOnly Color7Brush As SolidColorBrush
+        Public ReadOnly Color8Brush As SolidColorBrush
+        Public ReadOnly ColorBg0Brush As SolidColorBrush
+        Public ReadOnly ColorBg1Brush As SolidColorBrush
+        Public ReadOnly SemiTransparentBrush As SolidColorBrush
+        
+        Public Sub New(style As ThemeStyle, hue As Integer, sat As Integer, lightAdjust As Integer)
+            Dim sat0 = sat * style.Sa0
+            Dim sat1 = sat * style.Sa1
+            
+            Color1 = NewColor.FromHSL2(hue, sat0 * 0.2, style.L1)
+            Color2 = NewColor.FromHSL2(hue, sat0, AdjustLight(style.L2, lightAdjust, style))
+            Color3 = NewColor.FromHSL2(hue, sat0, AdjustLight(style.L3, lightAdjust, style))
+            Color4 = NewColor.FromHSL2(hue, sat0, AdjustLight(style.L4, lightAdjust, style))
+            Color5 = NewColor.FromHSL2(hue, sat1, AdjustLight(style.L5, lightAdjust, style))
+            Color6 = NewColor.FromHSL2(hue, sat1, AdjustLight(style.L6, lightAdjust, style))
+            Color7 = NewColor.FromHSL2(hue, sat1, AdjustLight(style.L7, lightAdjust, style))
+            Color8 = NewColor.FromHSL2(hue, sat1, AdjustLight(style.L8, lightAdjust, style))
+            ColorBg0 = NewColor.FromHSL2(hue, sat, AdjustLight(style.Lb0, lightAdjust, style))
+            ColorBg1 = NewColor.FromHSL2(hue, sat, AdjustLight(style.Lb1, lightAdjust, style)).Alpha(&HBE)
+            SemiTransparent = NewColor.FromHSL2(hue, sat, AdjustLight(style.L8, lightAdjust, style)).Alpha(&H01)
+            
+            Color1Brush = New SolidColorBrush(Color1)
+            Color2Brush = New SolidColorBrush(Color2)
+            Color3Brush = New SolidColorBrush(Color3)
+            Color4Brush = New SolidColorBrush(Color4)
+            Color5Brush = New SolidColorBrush(Color5)
+            Color6Brush = New SolidColorBrush(Color6)
+            Color7Brush = New SolidColorBrush(Color7)
+            Color8Brush = New SolidColorBrush(Color8)
+            ColorBg0Brush = New SolidColorBrush(ColorBg0)
+            ColorBg1Brush = New SolidColorBrush(ColorBg1)
+            SemiTransparentBrush = New SolidColorBrush(SemiTransparent)
+        End Sub
+    End Class
+    
+    Public ReadOnly LightStyle = New ThemeStyle With {
+        .L1 = 25, .L2 = 45, .L3 = 55, .L4 = 65,
+        .L5 = 80, .L6 = 91, .L7 = 95, .L8 = 97,
+        .G1 = 100, .G2 = 98, .G3 = 0,
+        .Sa0 = 1, .Sa1 = 1, .LaN = 0.5
+    }
+
+    Public ReadOnly LightStaticColors As New ThemeStyleStaticColors(LightStyle)
+
+    Public ReadOnly DarkStyle = New ThemeStyle With {
+        .L1 = 96, .L2 = 75, .L3 = 60, .L4 = 65,
+        .L5 = 45, .L6 = 25, .L7 = 22, .L8 = 20,
+        .G1 = 15, .G2 = 20, .G3 = 100,
+        .Sa0 = 1, .Sa1 = 0.4, .LaP = 0.75, .LaN = 0.75
+    }
+
+    Public ReadOnly DarkStaticColors As New ThemeStyleStaticColors(DarkStyle)
+    
+    Public ReadOnly Property CurrentStyle As ThemeStyle
+        Get
+            Return If(IsDarkMode, DarkStyle, LightStyle)
+        End Get
+    End Property
+
+    Public Property StaticColors As ThemeStyleStaticColors = Nothing
+    
+    Public Property DynamicColors As ThemeStyleDynamicColors = Nothing
+
+    Public ThemeNow As Integer = -1
+    'Public ColorHue As Integer = If(IsDarkMode, 200, 210), ColorSat As Integer = If(IsDarkMode, 100, 85), ColorLightAdjust As Integer = If(IsDarkMode, 15, 0), ColorHueTopbarDelta As Object = 0
+    Public ColorHue As Integer = 210, ColorSat As Integer = 85, ColorLightAdjust As Integer = 0, ColorHueTopbarDelta As Object = 0
+    Public ThemeNow As Integer = -1
+    'Public ColorHue As Integer = If(IsDarkMode, 200, 210), ColorSat As Integer = If(IsDarkMode, 100, 85), ColorLightAdjust As Integer = If(IsDarkMode, 15, 0), ColorHueTopbarDelta As Object = 0
+    Public ColorHue As Integer = 210, ColorSat As Integer = 85, ColorLightAdjust As Integer = 0, ColorHueTopbarDelta As Object = 0
     Public ThemeDontClick As Integer = 0
 
     '深色模式事件
@@ -421,25 +607,24 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     ' 触发事件的函数
     Public Sub RaiseThemeChanged(isDarkMode As Boolean)
         RaiseEvent ThemeChanged("", isDarkMode)
-    End Sub
-
-    Public Sub ThemeRefresh(Optional NewTheme As Integer = -1)
         ThemeNow = If(NewTheme > -1, NewTheme, Setup.Get("UiLauncherTheme"))
         If ThemeNow <> 14 Then
             ThemeLoad(ThemeNow)
         End If
         ThemeLoadPanTitle()
         RaiseThemeChanged(IsDarkMode)
+
+    Public Sub ThemeRefresh(Optional NewTheme As Integer = -1)
+        RaiseThemeChanged(IsDarkMode)
         ThemeRefreshColor()
+        RaiseThemeChanged(IsDarkMode)
         ThemeRefreshMain()
     End Sub
+
     Public Function GetDarkThemeLight(OriginalLight As Double) As Double
         If IsDarkMode Then
             Return OriginalLight * 0.1
         Else
-            Return OriginalLight
-        End If
-    End Function
     Public Sub ThemeRefreshColor()
         Dim sat = ColorSat
         ColorDark1 = ColorDark1.FromHSL2(ColorHue, sat, ColorDark1Hsl.L)
@@ -477,7 +662,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         ColorGray7 = If(IsDarkMode, ColorGrayDark7, ColorGrayLight7)
         ColorGray8 = If(IsDarkMode, ColorGrayDark8, ColorGrayLight8)
 
-        If IsDarkMode Then
+        ColorGray7 = If(IsDarkMode, ColorGrayDark7, ColorGrayLight7)
             Application.Current.Resources("ColorBrush1") = New SolidColorBrush(ColorDark1)
             Application.Current.Resources("ColorBrush2") = New SolidColorBrush(ColorDark2)
             Application.Current.Resources("ColorBrush3") = New SolidColorBrush(ColorDark3)
@@ -508,7 +693,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
             Application.Current.Resources("ColorBrushMsgBox") = New SolidColorBrush(Color.FromRgb(43, 43, 43))
             Application.Current.Resources("ColorBrushMsgBoxText") = New SolidColorBrush(ColorDark1)
             Application.Current.Resources("ColorBrushMemory") = New SolidColorBrush(Color.FromRgb(255, 255, 255))
-        Else
+            Application.Current.Resources("ColorBrushMsgBox") = New SolidColorBrush(Color.FromRgb(43, 43, 43))
             Application.Current.Resources("ColorBrush1") = New SolidColorBrush(ColorLight1)
             Application.Current.Resources("ColorBrush2") = New SolidColorBrush(ColorLight2)
             Application.Current.Resources("ColorBrush3") = New SolidColorBrush(ColorLight3)
@@ -539,19 +724,77 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
             Application.Current.Resources("ColorBrushMsgBox") = New SolidColorBrush(Color.FromRgb(251, 251, 251))
             Application.Current.Resources("ColorBrushMsgBoxText") = New SolidColorBrush(ColorLight1)
             Application.Current.Resources("ColorBrushMemory") = New SolidColorBrush(Color.FromRgb(0, 0, 0))
-        End If
+            Application.Current.Resources("ColorBrushMsgBox") = New SolidColorBrush(Color.FromRgb(251, 251, 251))
+        
+        Dim res = Application.Current.Resources
+        StaticColors = If(IsDarkMode, DarkStaticColors, LightStaticColors)
+        DynamicColors = New ThemeStyleDynamicColors(CurrentStyle, ColorHue, ColorSat, ColorLightAdjust)
 
-        Application.Current.Resources("ColorBrush4") = New SolidColorBrush(Color4)
-        Application.Current.Resources("ColorBrush5") = New SolidColorBrush(Color5)
-        Application.Current.Resources("ColorObject4") = Color4.ToColor()
-        Application.Current.Resources("ColorObject5") = Color5.ToColor()
+        res("ColorObjectGray1") = StaticColors.Gray1
+        res("ColorObjectGray2") = StaticColors.Gray2
+        res("ColorObjectGray3") = StaticColors.Gray3
+        res("ColorObjectGray4") = StaticColors.Gray4
+        res("ColorObjectGray5") = StaticColors.Gray5
+        res("ColorObjectGray6") = StaticColors.Gray6
+        res("ColorObjectGray7") = StaticColors.Gray7
+        res("ColorObjectGray8") = StaticColors.Gray8
+
+        res("ColorBrushGray1") = StaticColors.Gray1Brush
+        res("ColorBrushGray2") = StaticColors.Gray2Brush
+        res("ColorBrushGray3") = StaticColors.Gray3Brush
+        res("ColorBrushGray4") = StaticColors.Gray4Brush
+        res("ColorBrushGray5") = StaticColors.Gray5Brush
+        res("ColorBrushGray6") = StaticColors.Gray6Brush
+        res("ColorBrushGray7") = StaticColors.Gray7Brush
+        res("ColorBrushGray8") = StaticColors.Gray8Brush
+        
+        res("ColorObject1") = DynamicColors.Color1
+        res("ColorObject2") = DynamicColors.Color2
+        res("ColorObject3") = DynamicColors.Color3
+        res("ColorObject4") = DynamicColors.Color4
+        res("ColorObject5") = DynamicColors.Color5
+        res("ColorObject6") = DynamicColors.Color6
+        res("ColorObject7") = DynamicColors.Color7
+        res("ColorObject8") = DynamicColors.Color8
+        res("ColorObjectBg0") = DynamicColors.ColorBg0
+        res("ColorObjectBg1") = DynamicColors.ColorBg1
+        
+        res("ColorBrush1") = DynamicColors.Color1Brush
+        res("ColorBrush2") = DynamicColors.Color2Brush
+        res("ColorBrush3") = DynamicColors.Color3Brush
+        res("ColorBrush4") = DynamicColors.Color4Brush
+        res("ColorBrush5") = DynamicColors.Color5Brush
+        res("ColorBrush6") = DynamicColors.Color6Brush
+        res("ColorBrush7") = DynamicColors.Color7Brush
+        res("ColorBrush8") = DynamicColors.Color8Brush
+        res("ColorBrushBg0") = DynamicColors.ColorBg0Brush
+        res("ColorBrushBg1") = DynamicColors.ColorBg1Brush
+        
+        res("ColorBrushWhite") = StaticColors.WhiteBrush
+        res("ColorBrushHalfWhite") = StaticColors.HalfWhiteBrush
+        res("ColorBrushSemiWhite") = StaticColors.SemiWhiteBrush
+        res("ColorBrushBackgroundTransparentSidebar") = StaticColors.BackgroundTransparentSidebarBrush
+        res("ColorBrushTransparent") = StaticColors.TransparentBrush
+        res("ColorBrushSemiTransparent") = DynamicColors.SemiTransparentBrush
+        res("ColorBrushToolTip") = StaticColors.TooltipBrush
+        res("ColorBrushMemory") = StaticColors.MemoryBrush
+        res("ColorBrushMsgBox") = StaticColors.WhiteBrush
+        res("ColorBrushMsgBoxText") = res("ColorBrush1")
+            Application.Current.Resources("ColorBrushMsgBoxText") = New SolidColorBrush(ColorLight1)
+            Application.Current.Resources("ColorBrushMemory") = New SolidColorBrush(Color.FromRgb(0, 0, 0))
+        End If
     End Sub
+    
     Public Sub ThemeRefreshMain()
+#If DEBUG Then
+        If EnableCustomTheme Then ThemeNow = 14
+#End If
         RunInUi(
         Sub()
-            If Not FrmMain.IsLoaded Then Exit Sub
+            If Not FrmMain.IsLoaded Then Return
             '顶部条背景
             Dim Brush = New LinearGradientBrush With {.EndPoint = New Point(1, 0), .StartPoint = New Point(0, 0)}
+            Dim lightAdjust = ColorLightAdjust * 1.2
             If ThemeNow = 5 Then
                 Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue, ColorSat, 25)})
                 Brush.GradientStops.Add(New GradientStop With {.Offset = 0.5, .Color = New MyColor().FromHSL2(ColorHue, ColorSat, 15)})
@@ -560,29 +803,37 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
                 FrmMain.PanTitle.Background.Freeze()
             ElseIf Not (ThemeNow = 12 OrElse ThemeDontClick = 2) Then
                 If TypeOf ColorHueTopbarDelta Is Integer Then
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue - ColorHueTopbarDelta, ColorSat, 48 + ColorLightAdjust)})
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0.5, .Color = New MyColor().FromHSL2(ColorHue, ColorSat, 54 + ColorLightAdjust)})
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta, ColorSat, 48 + ColorLightAdjust)})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue - ColorHueTopbarDelta, ColorSat, AdjustLight(48, lightAdjust))})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0.5, .Color = New MyColor().FromHSL2(ColorHue, ColorSat, AdjustLight(54, lightAdjust))})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta, ColorSat, AdjustLight(48, lightAdjust))})
                 Else
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta(0), ColorSat, 48 + ColorLightAdjust)})
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0.5, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta(1), ColorSat, 54 + ColorLightAdjust)})
-                    Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta(2), ColorSat, 48 + ColorLightAdjust)})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta(0), ColorSat, AdjustLight(48, lightAdjust))})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 0.5, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta(1), ColorSat, AdjustLight(54, lightAdjust))})
+                    Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta(2), ColorSat, AdjustLight(48, lightAdjust))})
                 End If
-                FrmMain.PanTitle.Background = Brush
-                FrmMain.PanTitle.Background.Freeze()
-            Else
                 Brush.GradientStops.Add(New GradientStop With {.Offset = 0, .Color = New MyColor().FromHSL2(ColorHue - ColorHueTopbarDelta, ColorSat, ColorLightAdjust)})
                 Brush.GradientStops.Add(New GradientStop With {.Offset = 0.33, .Color = New MyColor().FromHSL2(ColorHue - ColorHueTopbarDelta, ColorSat, ColorLightAdjust)})
                 Brush.GradientStops.Add(New GradientStop With {.Offset = 0.67, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta, ColorSat, ColorLightAdjust)})
                 Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + ColorHueTopbarDelta, ColorSat, ColorLightAdjust)})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.33, .Color = New MyColor().FromHSL2(ColorHue - 7, ColorSat, 47 + ColorLightAdjust)})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.67, .Color = New MyColor().FromHSL2(ColorHue + 7, ColorSat, 47 + ColorLightAdjust)})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 1, .Color = New MyColor().FromHSL2(ColorHue + 21, ColorSat, 53 + ColorLightAdjust)})
                 FrmMain.PanTitle.Background = Brush
             End If
             '主页面背景
             If Setup.Get("UiBackgroundColorful") Then
                 Brush = New LinearGradientBrush With {.EndPoint = New Point(0.1, 1), .StartPoint = New Point(0.9, 0)}
-                Brush.GradientStops.Add(New GradientStop With {.Offset = -0.1, .Color = New MyColor().FromHSL2(ColorHue - 20, Math.Min(60, ColorSat) * 0.5, GetDarkThemeLight(80))})
-                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.4, .Color = New MyColor().FromHSL2(ColorHue, ColorSat * 0.9, GetDarkThemeLight(90))})
-                Brush.GradientStops.Add(New GradientStop With {.Offset = 1.1, .Color = New MyColor().FromHSL2(ColorHue + 20, Math.Min(60, ColorSat) * 0.5, GetDarkThemeLight(80))})
+                Dim hue1, hue2 As Integer
+                If ThemeNow = 14 AndAlso TypeOf ColorHueTopbarDelta Is Integer Then
+                    hue1 = ColorHue + ColorHueTopbarDelta
+                    hue2 = ColorHue - ColorHueTopbarDelta
+                Else
+                    hue1 = ColorHue - 15
+                    hue2 = ColorHue + 15
+                End If
+                Brush.GradientStops.Add(New GradientStop With {.Offset = -0.1, .Color = New MyColor().FromHSL2(hue1, ColorSat * 0.8, GetDarkThemeLight(80))})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 0.4, .Color = New MyColor().FromHSL2(ColorHue, ColorSat * 0.8, GetDarkThemeLight(90))})
+                Brush.GradientStops.Add(New GradientStop With {.Offset = 1.1, .Color = New MyColor().FromHSL2(hue2, ColorSat * 0.8, GetDarkThemeLight(80))})
                 FrmMain.PanForm.Background = Brush
             Else
                 FrmMain.PanForm.Background = New MyColor(If(IsDarkMode, 20, 245), If(IsDarkMode, 20, 245), If(IsDarkMode, 20, 245))
@@ -609,51 +860,26 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
 
 #Region "更新"
 
-    Public Class UpdateInfo
-        Public Property assets As List(Of UpdateAssetInfo)
-    End Class
-
-    Public Class UpdateAssetInfo
-        Public Property file_name As String
-        Public Property version As UpdateAssetVersionInfo
-        Public Property upd_time As String
-        Public Property downloads As List(Of String)
-        Public Property sha256 As String
-    End Class
-
-    Public Class UpdateAssetVersionInfo
-        Public Property channel As String
-        Public Property name As String
-        Public Property code As Integer
-    End Class
-
-    Public Class AnnouncementDetialInfo
-        Public Property title As String
-        Public Property detail As String
-        Public Property id As String
-        Public Property [date] As String
-        Public Property btn1 As AnnouncementBtnInfo
-        Public Property btn2 As AnnouncementBtnInfo
-    End Class
-
-    Public Class AnnouncementBtnInfo
-        Public Property text As String
-        Public Property command As String
-        Public Property command_paramter As String
-    End Class
-
-    Public Class AnnouncementInfo
-        Public Property content As List(Of AnnouncementDetialInfo)
-    End Class
-
-    Public RemoteVersionData As UpdateInfo = Nothing
-    Public RemoteAnnounceData As AnnouncementInfo = Nothing
-    Public IsUpdateStarted As Boolean = False
+    Public IsCheckingUpdates As Boolean = False
     Public IsUpdateWaitingRestart As Boolean = False
-    Public RemoteServerBaseurl As New Dictionary(Of Integer, String) From {}
+    Public RemoteServer As New List(Of IUpdateSource) From {
+        New UpdatesMirrorChyanModel(),
+        New UpdatesRandomModel({
+                New UpdatesMinioModel("https://s3.pysio.online/pcl2-ce/", "Pysio"),
+                New UpdatesMinioModel("https://staticassets.naids.com/resources/pclce/", "Naids")
+                               }),
+        New UpdatesMinioModel("https://github.com/PCL-Community/PCL2_CE_Server/raw/main/", "GitHub")
+    }
+    Public LatestVersion As VersionDataModel = Nothing
+    Public LatestAnnouncement As AnnouncementInfoModel = Nothing
+    Public ReadOnly Property IsUpdBetaChannel
+        Get
+            Return Setup.Get("SystemSystemUpdateBranch") = 1
+        End Get
+    End Property
 
     Public Sub UpdateCheckByButton()
-        If IsUpdateStarted Then
+        If IsCheckingUpdates Then
             Hint("正在检查更新中，请稍后再试……")
             Exit Sub
         End If
@@ -669,48 +895,58 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
                        End Sub)
     End Sub
     Private Sub RefreshUpdatesCache()
-        Try
-            Dim UpdCaches As JObject = Nothing
-            If RemoteServerBaseurl.Count <> 0 Then UpdCaches = NetGetCodeByRequestRetry(GetRemotePath("api/cache.json"), IsJson:=True)
-            Dim UpdatesCacheFile = PathTemp & "Cache/updates.json"
-            Dim AnnouncementCacheFile = PathTemp & "Cache/announcement.json"
-            If RemoteServerBaseurl.Count <> 0 AndAlso GetFileMD5(UpdatesCacheFile) <> UpdCaches("updates") Then
-                WriteFile(UpdatesCacheFile, NetGetCodeByRequestRetry(GetRemotePath("api/updates.json")))
-            End If
-            If RemoteServerBaseurl.Count <> 0 AndAlso GetFileMD5(AnnouncementCacheFile) <> UpdCaches("announcement") Then
-                WriteFile(AnnouncementCacheFile, NetGetCodeByRequestRetry(GetRemotePath("api/announcement.json")))
-            End If
-            RemoteVersionData = CType(GetJson(ReadFile(UpdatesCacheFile)), JObject).ToObject(Of UpdateInfo)()
-            RemoteAnnounceData = CType(GetJson(ReadFile(AnnouncementCacheFile)), JObject).ToObject(Of AnnouncementInfo)()
-        Catch ex As Exception
-            Log(ex, "[System] 刷新更新信息失败……")
-        End Try
-    End Sub
-    Private Function GetRemotePath(path As String) As String
-        Return RemoteServerBaseurl(Setup.Get("SystemSystemServer")) & path
-    End Function
-    Public Function GetChannelInfo(Optional TargetMainChannel As String = Nothing) As UpdateAssetInfo
-        If RemoteVersionData Is Nothing Then
-            Log("[Update] 未获取到远程版本信息，尝试重新获取")
-            RefreshUpdatesCache()
+        '更新源
+        For Each source In RemoteServer
+            Try
+                If Not source.IsAvailable() Then Throw New Exception("此更新源不可用")
+                source.EnsureLatestData()
+                LatestVersion = source.GetLatestVersion(If(IsUpdBetaChannel, UpdateChannel.beta, UpdateChannel.stable), If(IsArm64System, UpdateArch.arm64, UpdateArch.x64))
+                Exit For
+            Catch ex As Exception
+                Log(ex, $"[System] 更新：{source.SourceName} 不可用，换下一个")
+                Continue For
+            End Try
+        Next
+        If LatestVersion Is Nothing Then
+            Log("[System] 无法找到有效更新源……")
+            Throw New Exception("无法获取有效更新源")
         End If
-        Dim IsBeta As Boolean = Setup.Get("SystemSystemUpdateBranch") = 1
-        Dim targetChannel As UpdateAssetInfo = Nothing
-        Dim targetMainChannelName = If(TargetMainChannel, If(IsBeta, "fr", "sr"))
-        Log($"[System] 返回 {targetMainChannelName} 通道的更新信息")
-        targetChannel = RemoteVersionData.assets.Where(Function(x) x.version.channel = targetMainChannelName & If(IsArm64System, "arm64", "x64")).First()
-        Return targetChannel
+    End Sub
+    Private Sub RefreshAnnouncementCache()
+        For Each source In RemoteServer
+            Try
+                If Not source.IsAvailable() OrElse source.SourceName = "MirrorChyan" Then Throw New Exception("此源无法获取公告")
+                source.EnsureLatestData()
+                LatestAnnouncement = source.GetAnnouncementList()
+                Exit For
+            Catch ex As Exception
+                Log(ex, $"[System] 公告：{source.SourceName} 不可用，换下一个")
+                Continue For
+            End Try
+        Next
+        If LatestAnnouncement Is Nothing Then
+            Log("[System] 无法找到有效公告源……")
+            Throw New Exception("无法获取有效公告源")
+        End If
+    End Sub
+    Public Function IsVerisonLatest() As Boolean
+        If LatestVersion Is Nothing Then
+            Hint("无法获取最新版本信息，请检查网络连接", HintType.Critical)
+            Return False
+        End If
+        If LatestVersion.Source = "MirrorChyan" Then
+            Return SemVer.Parse(LatestVersion.version_name) <= SemVer.Parse(VersionBaseName)
+        Else
+            Return LatestVersion.version_code <= VersionCode
+        End If
     End Function
-
     Public Sub NoticeUserUpdate(Optional Silent As Boolean = False)
-        Dim LatestVersion = GetChannelInfo()
-        Log($"[System] 获取到最新版本号 {LatestVersion.version.code.ToString()}")
-        If LatestVersion.version.code > VersionCode Then
-            If Not Val(Environment.OSVersion.Version.ToString().Split(".")(2)) >= 19042 AndAlso Not LatestVersion.version.name.StartsWithF("2.9.") Then
-                If MyMsgBox($"发现了启动器更新（版本 {LatestVersion.version.name}），但是由于你的 Windows 版本过低，不满足新版本要求。{vbCrLf}你需要更新到 Windows 10 20H2 或更高版本才可以继续更新。", "启动器更新 - 系统版本过低", "升级 Windows 10", "取消", IsWarn:=True, ForceWait:=True) = 1 Then OpenWebsite("https://www.microsoft.com/zh-cn/software-download/windows10")
+        If Not IsVerisonLatest() Then
+            If Not Val(Environment.OSVersion.Version.ToString().Split(".")(2)) >= 19042 AndAlso Not LatestVersion.version_name.StartsWithF("2.9.") Then
+                If MyMsgBox($"发现了启动器更新（版本 {LatestVersion.version_name}），但是由于你的 Windows 版本过低，不满足新版本要求。{vbCrLf}你需要更新到 Windows 10 20H2 或更高版本才可以继续更新。", "启动器更新 - 系统版本过低", "升级 Windows 10", "取消", IsWarn:=True, ForceWait:=True) = 1 Then OpenWebsite("https://www.microsoft.com/zh-cn/software-download/windows10")
                 Exit Sub
             End If
-            If MyMsgBox($"启动器有新版本可用（｛VersionBaseName｝ -> {LatestVersion.version.name}, 发布于 {DateTime.Parse(LatestVersion.upd_time).ToLocalTime()}){vbCrLf}是否立即更新？", "启动器更新", "更新", "取消") = 1 Then
+            If MyMsgBox($"启动器有新版本可用（｛VersionBaseName｝ -> {LatestVersion.version_name}){vbCrLf}是否立即更新？{vbCrLf}{vbCrLf}{LatestVersion.Desc}", "启动器更新", "更新", "取消") = 1 Then
                 UpdateStart(LatestVersion, False)
             End If
         Else
@@ -718,25 +954,21 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         End If
     End Sub
 
-    Public Sub UpdateStart(Version As UpdateAssetInfo, Slient As Boolean, Optional ReceivedKey As String = Nothing, Optional ForceValidated As Boolean = False)
+    Public Sub UpdateStart(Version As VersionDataModel, Slient As Boolean, Optional ReceivedKey As String = Nothing, Optional ForceValidated As Boolean = False)
         Dim DlTargetPath As String = Path + "PCL\Plain Craft Launcher Community Edition.exe"
-        Dim DlTempPath As String = PathTemp & "Cache\CEUpdates.zip"
+        Dim DlTempPath As String = $"{PathTemp}Cache\CEUpdates.zip"
         RunInNewThread(Sub()
                            Try
+                               WriteFile($"{PathTemp}CEUpdateLog.md", Version.Desc)
                                '构造步骤加载器
                                Dim Loaders As New List(Of LoaderBase)
                                '下载
-                               Loaders.Add(New LoaderDownload("下载更新文件", New List(Of NetFile) From {New NetFile(Version.downloads, DlTempPath, New FileChecker(MinSize:=1024 * 64))}) With {.ProgressWeight = 15})
-                               Loaders.Add(New LoaderTask(Of Integer, Integer)("检查更新文件", Sub()
-                                                                                             Dim NewFileSha256 = GetFileSHA256(DlTempPath)
-                                                                                             If String.IsNullOrWhiteSpace(NewFileSha256) Then
-                                                                                                 Throw New Exception("计算已下载文件 SHA256 失败")
-                                                                                             End If
-                                                                                             If NewFileSha256 <> Version.sha256 Then
-                                                                                                 Throw New Exception($"文件检验不通过，更新文件 SHA256 为 {NewFileSha256}，实际需要 {Version.sha256}")
-                                                                                             End If
-                                                                                         End Sub))
+                               Loaders.Add(New LoaderDownload("下载更新文件", New List(Of NetFile) From {New NetFile(Version.download_url, DlTempPath, New FileChecker(MinSize:=1024 * 64, Hash:=Version.sha256))}) With {.ProgressWeight = 15})
                                Loaders.Add(New LoaderTask(Of Integer, Integer)("解压更新文件", Sub()
+                                                                                             If Not Version.IsArchive Then
+                                                                                                 File.Move(DlTempPath, DlTargetPath)
+                                                                                                 Exit Sub
+                                                                                             End If
                                                                                              Using archive = New ZipArchive(New FileStream(DlTempPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), ZipArchiveMode.Read)
                                                                                                  Dim entry As ZipArchiveEntry = archive.Entries.FirstOrDefault(Function(x) x.FullName.EndsWithF("Plain Craft Launcher Community Edition.exe"))
                                                                                                  entry.ExtractToFile(DlTargetPath, True)
@@ -847,16 +1079,26 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         '注意：如果要自行实现这个功能，请换用另一个文件路径，以免与官方版本冲突
         Dim LatestPCLPath As String = PathTemp & "CE-Latest.exe"
         Dim LatestPCLTempPath As String = PathTemp & "CE-Latest.zip"
-        Dim LatestInfo As UpdateAssetInfo = GetChannelInfo("sr")
-        If File.Exists(LatestPCLPath) AndAlso GetFileSHA256(LatestPCLPath) = LatestInfo.sha256 Then
+        Dim target As VersionDataModel = Nothing
+        For Each source In RemoteServer
+            Try
+                If Not source.IsAvailable() Then Throw New Exception("不可用")
+                source.EnsureLatestData()
+                target = source.GetLatestVersion(UpdateChannel.stable, UpdateArch.x64)
+            Catch ex As Exception
+                Continue For
+            End Try
+        Next
+        If target Is Nothing Then Throw New Exception("无法获取更新")
+        If File.Exists(LatestPCLPath) AndAlso GetFileSHA256(LatestPCLPath) = target.sha256 Then
             Log("[System] 最新版 PCL 已存在，跳过下载")
             Exit Sub
         End If
-        If GetFileSHA256(PathWithName) = LatestInfo.sha256 Then
+        If GetFileSHA256(PathWithName) = target.sha256 Then '正在使用的版本符合要求，直接拿来用
             CopyFile(PathWithName, LatestPCLPath)
             Exit Sub
         End If
-        NetDownloadByLoader(LatestInfo.downloads, LatestPCLTempPath, LoaderToSyncProgress)
+        NetDownloadByLoader(target.download_url, LatestPCLTempPath, LoaderToSyncProgress)
         Using archive = New ZipArchive(New FileStream(LatestPCLTempPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite), ZipArchiveMode.Read)
             Dim entry As ZipArchiveEntry = archive.Entries.FirstOrDefault(Function(x) x.FullName.EndsWithF("Plain Craft Launcher Community Edition.exe"))
             If entry IsNot Nothing Then
@@ -875,13 +1117,15 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
     Private Sub LoadOnlineInfo()
         Dim UpdateDesire = Setup.Get("SystemSystemUpdate")
         Dim AnnouncementDesire = Setup.Get("SystemSystemActivity")
-        If UpdateDesire <= 1 OrElse AnnouncementDesire <= 1 Then
+        If UpdateDesire <= 1 Then
             RefreshUpdatesCache()
+        End If
+        If AnnouncementDesire <= 1 Then
+            RefreshAnnouncementCache()
         End If
         Select Case UpdateDesire
             Case 0
-                Dim LatestVersion = GetChannelInfo()
-                If LatestVersion.version.code > VersionCode Then
+                If Not IsVerisonLatest() Then
                     UpdateStart(LatestVersion, True) '静默更新
                 End If
             Case 1
@@ -891,7 +1135,7 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         End Select
         If AnnouncementDesire <= 1 Then
             Dim ShowedAnnounced = Setup.Get("SystemSystemAnnouncement").ToString().Split("|").ToList()
-            Dim ShowAnnounce = RemoteAnnounceData.content.Where(Function(x) Not ShowedAnnounced.Contains(x.id)).ToList()
+            Dim ShowAnnounce = LatestAnnouncement.content.Where(Function(x) Not ShowedAnnounced.Contains(x.id)).ToList()
             Log("[System] 需要展示的公告数量：" + ShowAnnounce.Count.ToString())
             RunInNewThread(Sub()
                                For Each item In ShowAnnounce
@@ -916,6 +1160,108 @@ PCL-Community 及其成员与龙腾猫跃无从属关系，且均不会为您的
         End If
     End Sub
 
+#End Region
+
+#Region "遥测"
+    ''' <summary>
+    ''' 发送遥测数据，需要在非 UI 线程运行
+    ''' </summary>
+    Public Sub SendTelemetry()
+        Dim NetResult = ModLink.NetTest()
+        Dim Data = New JObject From {
+            {"Id", UniqueAddress},
+            {"OS", Environment.OSVersion.Version.Build},
+            {"Is64Bit", Not Is32BitSystem},
+            {"IsARM64", IsArm64System},
+            {"Launcher", VersionCode},
+            {"LauncherBranch", If(IsUpdBetaChannel, "Fast Ring", "Slow Ring")},
+            {"UsedOfficialPCL", ReadReg("SystemEula", Nothing, "PCL") IsNot Nothing},
+            {"UsedHMCL", Directory.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) & "\.hmcl")},
+            {"UsedBakaXL", Directory.Exists(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) & "\BakaXL")},
+            {"Memory", SystemMemorySize},
+            {"NatType", NetResult(0)},
+            {"IPv6Status", NetResult(1)}
+        }
+        Dim SendData = New JObject From {
+            {"data", Data}
+        }
+        Try
+            Dim Result As String = NetRequestRetry("https://pcl2ce.pysio.online/post", "POST", SendData.ToString(), "application/json")
+            If Result.Contains("数据已成功保存") Then
+                Log("[Telemetry] 软硬件调查数据已发送")
+            Else
+                Log("[Telemetry] 软硬件调查数据发送失败，原始返回内容: " + Result)
+            End If
+        Catch ex As Exception
+            Log(ex, "[Telemetry] 软硬件调查数据发送失败", LogLevel.Normal)
+        End Try
+    End Sub
+#End Region
+
+#Region "系统信息"
+    Friend CPUName As String = Nothing
+    ''' <summary>
+    ''' 系统 GPU 信息
+    ''' </summary>
+    Friend GPUs As New List(Of GPUInfo)
+    ''' <summary>
+    ''' 已安装物理内存大小，单位 MB
+    ''' </summary>
+    Friend SystemMemorySize As Long = My.Computer.Info.TotalPhysicalMemory / 1024 / 1024
+    ''' <summary>
+    ''' 系统信息描述，例如 Microsoft Windows 11 专业工作站版 10.0.22635.0
+    ''' </summary>
+    Public OSInfo As String = My.Computer.Info.OSFullName & " " & My.Computer.Info.OSVersion
+    Class GPUInfo
+        Friend Name As String
+        ''' <summary>
+        ''' 显存大小，单位 MB
+        ''' </summary>
+        Friend Memory As Long
+        Friend DriverVersion As String
+    End Class
+    ''' <summary>
+    ''' 获取系统信息，例如 CPU 与 GPU，并存储到 CPUName 和 GPUs
+    ''' </summary>
+    Friend Sub GetSystemInfo()
+        'CPU
+        Try
+            Dim searcher As New ManagementObjectSearcher("root\CIMV2", "SELECT * FROM Win32_Processor")
+
+            For Each queryObj As ManagementObject In searcher.Get()
+                CPUName = queryObj("Name").ToString().Trim()
+                Exit For '通常只需要第一个CPU的信息
+            Next
+        Catch ex As Exception
+            Log(ex, "获取 CPU 信息时出错", LogLevel.Normal)
+        End Try
+
+        'GPU
+        Try
+            Dim searcher As New ManagementObjectSearcher("root\CIMV2", "SELECT * FROM Win32_VideoController")
+
+            For Each queryObj As ManagementObject In searcher.Get()
+                Dim gpuInfo As New GPUInfo
+
+                If queryObj("Name") IsNot Nothing Then
+                    gpuInfo.Name = queryObj("Name")
+                End If
+                If queryObj("AdapterRAM") IsNot Nothing Then
+                    Dim ramMB As Long = CLng(queryObj("AdapterRAM")) \ (1024 * 1024)
+                    gpuInfo.Memory = ramMB
+                End If
+                If queryObj("DriverVersion") IsNot Nothing Then
+                    gpuInfo.DriverVersion = queryObj("DriverVersion")
+                End If
+
+                GPUs.Add(gpuInfo)
+            Next
+
+            Log("已获取系统环境信息")
+        Catch ex As Exception
+            Log(ex, "获取 GPU 信息时出错", LogLevel.Normal)
+        End Try
+    End Sub
 #End Region
 
 End Module

@@ -15,7 +15,7 @@
                 TriggerLauncherShutdown = False
             End If
         Next
-        If IsWatcherRunning = IsRunning Then Exit Sub
+        If IsWatcherRunning = IsRunning Then Return
         IsWatcherRunning = IsRunning
         If IsWatcherRunning Then
             MinecraftStart()
@@ -109,13 +109,16 @@
         Public Version As McVersion
         Private WindowTitle As String = ""
         Private PID As Integer
+        Public JStackPath As String
         Public Loader As LoaderTask(Of Process, Integer)
-        Public Sub New(Loader As LoaderTask(Of Process, Integer), Version As McVersion, WindowTitle As String, Optional OutputRealTime As Boolean = False)
+        Public Sub New(Loader As LoaderTask(Of Process, Integer), Version As McVersion, WindowTitle As String, JStackPath As String, Optional OutputRealTime As Boolean = False)
             Me.Loader = Loader
             Me.Version = Version
             Me.WindowTitle = WindowTitle
             Me.RealTime = OutputRealTime
             Me.PID = Loader.Input.Id
+            Me.JStackPath = JStackPath
+
             WatcherLog("开始 Minecraft 日志监控")
             If Me.WindowTitle <> "" Then WatcherLog("要求窗口标题：" & WindowTitle)
 
@@ -130,7 +133,7 @@
             WatcherStateChanged()
 
             '初始化进程与日志读取
-            Me.GameProcess = Loader.Input
+            GameProcess = Loader.Input
             GameProcess.BeginOutputReadLine()
             GameProcess.BeginErrorReadLine()
             AddHandler GameProcess.OutputDataReceived, AddressOf LogReceived
@@ -171,7 +174,7 @@
                 Return _State
             End Get
             Set(value As MinecraftState)
-                If _State = value Then Exit Property
+                If _State = value Then Return
                 _State = value
                 WatcherStateChanged()
             End Set
@@ -196,6 +199,14 @@
                 If e.Data IsNot Nothing Then FullLog.Add(e.Data)
             End If
         End Sub
+        ''' <summary>
+        ''' 是否处理实时日志。
+        ''' </summary>
+        Public ReadOnly Property RealTimeLog As Boolean
+            Get
+                Return RealTime
+            End Get
+        End Property
         ''' <summary>
         ''' 是否处理实时日志。
         ''' </summary>
@@ -246,7 +257,7 @@
                 '输出文本
                 Dim Copyed As New List(Of String)
                 SyncLock WaitingLogLock
-                    If Not WaitingLog.Any() Then Exit Sub
+                    If Not WaitingLog.Any() Then Return
                     Copyed = WaitingLog
                     WaitingLog = New List(Of String)(1000)
                 End SyncLock
@@ -285,8 +296,9 @@
         Public LatestLog As New Queue(Of String)
         Private Sub GameLog(Text As String)
             '预处理
-            If Text Is Nothing Then Exit Sub
+            If Text Is Nothing Then Return
             Text = Text.Replace(vbCrLf, vbCr).Replace(vbLf, vbCr).Replace(vbCr, vbCrLf)
+            'If Text.Contains("�����") Then Hint("检测到错误的日志编码：" & Text)
             '加入预存储
             LatestLog.Enqueue(Text)
             If LatestLog.Count >= 501 Then LatestLog.Dequeue()
@@ -361,8 +373,8 @@
         Private WindowHandle As IntPtr
         Private Sub TimerWindow()
             Try
-                If GameProcess.HasExited Then Exit Sub
-                If IsWindowFinished Then Exit Sub
+                If GameProcess.HasExited Then Return
+                If IsWindowFinished Then Return
                 '获取全部窗口，检查是否有新增的
                 Dim MinecraftWindow As KeyValuePair(Of IntPtr, String)? = Nothing
                 Try
@@ -372,10 +384,10 @@
                     Log(ex, "由于反作弊或安全软件拦截，PCL 无法操作游戏窗口", LogLevel.Hint)
                     IsWindowFinished = True
                 End Try
-                If MinecraftWindow Is Nothing Then Exit Sub
+                If MinecraftWindow Is Nothing Then Return
                 Dim MinecraftWindowName = MinecraftWindow.Value.Value, MinecraftWindowHandle = MinecraftWindow.Value.Key
                 '已找到窗口
-                If Not MinecraftWindowName.StartsWithF("FML") Then
+                If Not MinecraftWindowName.StartsWithF("FML") AndAlso Not MinecraftWindowName.StartsWithF("Quilt Loader") Then
                     '已找到 Minecraft 窗口
                     WindowHandle = MinecraftWindowHandle
                     WatcherLog($"Minecraft 窗口已加载：{MinecraftWindowName}（{MinecraftWindowHandle.ToInt64}）")
@@ -412,27 +424,27 @@
             TryGetMinecraftWindow = Nothing
             EnumWindows(
                 Sub(hwnd As IntPtr, lParam As Integer)
-                    If TryGetMinecraftWindow IsNot Nothing Then Exit Sub
+                    If TryGetMinecraftWindow IsNot Nothing Then Return
                     '检查类名
                     Dim str As New StringBuilder(512)
                     GetClassName(hwnd, str, str.Capacity)
                     Dim ClassName As String = str.ToString
-                    If Not (ClassName = "GLFW30" OrElse ClassName = "LWJGL" OrElse ClassName = "SunAwtFrame") Then Exit Sub
+                    If Not (ClassName = "GLFW30" OrElse ClassName = "LWJGL" OrElse ClassName = "SunAwtFrame") Then Return
                     '获取窗口标题名
                     str = New StringBuilder(512)
                     GetWindowText(hwnd, str, str.Capacity)
                     Dim WindowText As String = str.ToString
                     '有的 Mod 可以修改窗口标题，所以不能检测是否为 Minecraft 打头，这并不准确
                     '部分版本会搞个 GLFW message window 出来所以得反选
-                    If Not (WindowText.StartsWithF("FML") OrElse (WindowText <> "PopupMessageWindow") AndAlso Not WindowText.StartsWithF("GLFW")) Then Exit Sub
+                    If Not (WindowText.StartsWithF("FML") OrElse (WindowText <> "PopupMessageWindow") AndAlso Not WindowText.StartsWithF("GLFW")) Then Return
                     '获取窗口关联的进程
                     Dim ProcessId As Integer
                     GetWindowThreadProcessId(hwnd, ProcessId)
                     Try
-                        If Process.GetProcessById(ProcessId).StartTime < GameProcess.StartTime Then Exit Sub '需要是此后启动的进程
+                        If Process.GetProcessById(ProcessId).StartTime < GameProcess.StartTime Then Return '需要是此后启动的进程
                     Catch ex As Exception
                         Log(ex, "枚举 Minecraft 窗口进程失败")
-                        Exit Sub
+                        Return
                     End Try
                     '返回
                     TryGetMinecraftWindow = New KeyValuePair(Of IntPtr, String)(hwnd, WindowText)
@@ -449,7 +461,7 @@
 
         '崩溃处理
         Private Sub Crashed()
-            If State = MinecraftState.Crashed OrElse State = MinecraftState.Ended Then Exit Sub
+            If State = MinecraftState.Crashed OrElse State = MinecraftState.Ended Then Return
             State = MinecraftState.Crashed
             '崩溃分析
             WatcherLog("Minecraft 已崩溃，将在 2 秒后开始崩溃分析")
@@ -465,7 +477,7 @@
                     Analyzer.Prepare()
                     Analyzer.Analyze(Version)
                     Analyzer.Output(False, New List(Of String) From
-                        {Version.Path & Version.Name & ".json", Path & "PCL\Log-CE1.log", Path & "PCL\LatestLaunch.bat"})
+                        {Version.Path & Version.Name & ".json", Core.Helper.LogWrapper.CurrentLogger.LogFiles.Last(), Path & "PCL\LatestLaunch.bat"})
                 Catch ex As Exception
                     Log(ex, "崩溃分析失败", LogLevel.Feedback)
                 End Try
@@ -473,18 +485,49 @@
         End Sub
 
         '强制关闭
+        Public Function CheckAlive(p As Process) As Boolean
+            If Not p.HasExited Then Return True
+            Dim exists = Array.Exists(Process.GetProcesses, Function(item) item.Id = p.Id)
+            If exists Then Return True
+            Return False
+        End Function
         Public Sub Kill()
             State = MinecraftState.Canceled
-            WatcherLog("尝试强制结束 Minecraft 进程")
-            Try
-                If Not GameProcess.HasExited Then GameProcess.Kill()
-                WatcherLog("已强制结束 Minecraft 进程")
-                If RealTime Then LogRealTime($"Minecraft 已退出，返回值：{GameProcess.ExitCode}", GameLogLevel.Info)
-                RaiseEvent GameExit()
-            Catch ex As Exception
-                Log(ex, "强制结束 Minecraft 进程失败", LogLevel.Hint)
-            End Try
+            RunInNewThread(
+                Sub()
+                    WatcherLog("尝试强制结束 Minecraft 进程")
+                    Try
+                        If CheckAlive(GameProcess) Then GameProcess.Kill()
+                        GameProcess.WaitForExit(5000)
+                        If CheckAlive(GameProcess) Then
+                            WatcherLog("进程仍未退出，尝试使用 taskkill.exe")
+                            Dim taskkillProcess = Process.Start("taskkill.exe", $"/PID {GameProcess.Id} /F /T")
+                            Dim output = taskkillProcess.StandardOutput.ReadToEnd()
+                            Log($"执行 taskkill.exe 结果: {output}")
+                            GameProcess.WaitForExit(5000)
+                            If CheckAlive(GameProcess) Then
+                                WatcherLog("强制结束 Minecraft 进程失败: 等待进程退出超时")
+                                Return
+                            End If
+                        End If
+                        WatcherLog("已强制结束 Minecraft 进程")
+                        If RealTime Then LogRealTime($"Minecraft 已退出，返回值：{GameProcess.ExitCode}", GameLogLevel.Info)
+                        RaiseEvent GameExit()
+                    Catch ex As Exception
+                        Log(ex, "强制结束 Minecraft 进程失败", LogLevel.Hint)
+                    End Try
+                End Sub)
         End Sub
+
+        '导出运行栈
+        Public Function ExportStackDump(SavePath As String) As List(Of String)
+            Dim Dump As New List(Of String)
+            For i = 1 To 3
+                Dump.Add(ShellAndGetOutput(JStackPath, "-l -e " & GameProcess.Id))
+                Thread.Sleep(3000)
+            Next
+            Return Dump
+        End Function
     End Class
 
 End Module

@@ -14,6 +14,8 @@ body:
       required: true
     - label: "我已在 [Issues 页面](https://github.com/PCL-Community/PCL2-CE/issues?q=is%3Aissue+) 中搜索，确认了这一 Bug 未被提交过。"
       required: true
+    - label: "我确认正在使用的启动器版本为 Fast Ring 通道的最新版。（最新版获取方式：启动器 `设置-其他-系统` 切换至 Fast Ring 通道并单击“检查更新”，或在 [Releases](https://github.com/PCL-Community/PCL2-CE/releases) 页面的最顶部直接下载）"
+      required: true
 - type: textarea
   id: "yml-2"
   attributes:
@@ -25,7 +27,7 @@ body:
   id: "yml-3"
   attributes:
     label: PCL 错误报告、日志与附件
-    description: "上传 PCL 提供的错误报告（在崩溃时选择导出错误报告）。如果没有，也可以上传 PCL 文件夹中的 Log1~5.txt。"
+    description: "上传 PCL 提供的错误报告（在崩溃时选择导出错误报告）。如果没有，也可以上传启动器同目录下的 PCL/Log 文件夹中的按照日期排序最新的日志文件。"
     placeholder: "先点击这个文本框，然后再将文件直接拖拽到文本框中以上传。"
   validations:
     required: true

@@ -6,6 +6,7 @@ Imports System.Net.Sockets
 Imports Makaretu.Nat
 Imports STUN
 Imports System.Net.NetworkInformation
+Imports PCL.PageLinkNetStatus
 
 Public Class ModLink
 
@@ -17,6 +18,7 @@ Public Class ModLink
         Public Property PlayerOnline As Integer
         Public Property Description As String
         Public Property Favicon As String
+        Public Property Latency As Integer = -1
 
         Public Overrides Function ToString() As String
             Return $"[MCPing] Version: {VersionName}, Players: {PlayerOnline}/{PlayerMax}, Description: {Description}"
@@ -26,13 +28,13 @@ Public Class ModLink
     Public Class MCPing
 
 
-        Sub New(IP As String, Port As Integer)
+        Sub New(IP As String, Optional Port As UInt16 = 25565)
             _IP = IP
             _Port = Port
         End Sub
 
         Private _IP As String
-        Private _Port As Integer
+        Private _Port As UInt16
 
         ''' <summary>
         ''' 对疑似 MC 端口进行 MCPing，并返回相关信息
@@ -41,55 +43,119 @@ Public Class ModLink
             Try
                 ' 创建 TCP 客户端并连接到服务器
                 Using client As New TcpClient(_IP, _Port)
+                    Log($"[MCPing] Established connection ({_IP}:{_Port})", LogLevel.Debug)
                     ' 向服务器发送握手数据包
                     Using stream = client.GetStream()
-                        If Not stream.CanWrite OrElse Not stream.CanRead Then Return New WorldInfo
+                        If Not stream.CanWrite OrElse Not stream.CanRead Then Return Nothing
+                        Dim startTime = DateTime.Now '开始计时
 
                         Dim handshake As Byte() = BuildHandshake(_IP, _Port)
+                        Log($"[MCPing] Sending {String.Join(" ", handshake)}", LogLevel.Debug)
                         Await stream.WriteAsync(handshake, 0, handshake.Length)
-                        Log($"[MCPing] Send {String.Join(" ", handshake)}", LogLevel.Debug)
+                        Log($"[MCPing] Sended handshake", LogLevel.Debug)
 
                         ' 向服务器发送查询状态信息的数据包
                         Dim statusRequest As Byte() = BuildStatusRequest()
+                        Log($"[MCPing] Sending {String.Join(" ", statusRequest)}")
                         Await stream.WriteAsync(statusRequest, 0, statusRequest.Length)
-                        Log($"[MCPing] Send {String.Join(" ", statusRequest)}")
+                        Log($"[MCPing] Sended statusrequest", LogLevel.Debug)
 
                         ' 读取服务器响应的数据
-                        Dim result As New List(Of Byte)
-                        While True
-                            Dim responseBuffer(1024) As Byte
-                            Dim bytesRead As Integer = Await stream.ReadAsync(responseBuffer, 0, responseBuffer.Length)
-                            If bytesRead = 0 Then Exit While
-                            result.AddRange(responseBuffer.Take(bytesRead))
+                        Dim res As New List(Of Byte)
+                        Dim buffer(4096) As Byte
+
+                        ' 读取varInt头部
+                        Dim packetLength As Integer = 0
+                        Dim bytesNeeded = 5
+                        Do
+                            Dim bytesRead = Await stream.ReadAsync(buffer, 0, Math.Min(buffer.Length, bytesNeeded))
+                            If bytesRead = 0 Then Exit Do
+
+                            Dim parseResult = ParseVarInt(buffer.Take(bytesRead).ToArray(), packetLength)
+                            If parseResult.Success Then
+                                bytesNeeded = parseResult.BytesNeeded
+                                If bytesNeeded = 0 Then Exit Do
+                            Else
+                                Exit Do
+                            End If
+                        Loop While bytesNeeded > 0
+                        Dim endTime = DateTime.Now '停止计时
+                        packetLength -= 3
+                        Log($"[MCPing] Got packet length ({packetLength})", LogLevel.Debug)
+
+                        ' 读取剩余数据包
+                        Dim totalBytes = 0
+                        Do
+                            Dim bytesRead = Await stream.ReadAsync(buffer, 0, buffer.Length)
+                            If bytesRead = 0 Then Exit Do
+                            res.AddRange(buffer.Take(bytesRead))
+                            totalBytes += bytesRead
+                            Log($"[MCPing] Received part ({bytesRead})", LogLevel.Debug)
+                        Loop While totalBytes < packetLength
+
+                        Log($"[MCPing] Received ({res.Count})", LogLevel.Debug)
+
+                        Dim response As String = Encoding.UTF8.GetString(res.ToArray(), 0, res.Count)
+                        Dim startIndex = response.IndexOf("{""", StringComparison.Ordinal)
+                        If startIndex > 10 Then Return Nothing
+                        response = response.Substring(startIndex)
+                        Log("[MCPing] Server Response: " & response, LogLevel.Debug)
+                        
+                        '查找并截取第一段 JSON
+                        '有些 mod 或是整合包定制服务端会在返回的 JSON 后面添加新的内容，比如 Better MC
+                        '这时候需要把第一段合法的 JSON 截出来，否则下面解析 JSON 会炸掉
+                        '但是它们完全可以在返回的 JSON 内部添加自定义内容，添加在后面估计就是为了图 mixin 省事
+                        '不守规范一时爽，第三方解析火葬场
+                        Dim stack = 0, index = 0, stackStr = False, length = response.Length
+                        While index < length 
+                            Select Case response(index)
+                                Case "\"c
+                                    If stackStr Then index += 1
+                                Case """"c
+                                    stackStr = Not stackStr
+                                Case "{"c
+                                    If Not stackStr Then stack += 1
+                                Case "}"c
+                                    stack -= 1
+                                    If stack = 0 Then
+                                        response = response.Substring(0, index + 1)
+                                        Log("[MCPing] Correct Response: " & response, LogLevel.Debug)
+                                        Exit While
+                                    End If
+                            End Select
+                            index += 1
                         End While
 
-                        Log($"[MCPing] Received ({result.Count}) = {String.Join(" ", result)}")
-                        ' 将响应数据转换为字符串
-                        Dim response As String = Encoding.UTF8.GetString(result.ToArray(), 0, result.Count)
-                        Dim i = 0
-                        While i < response.Length AndAlso response.Chars(i) <> "{" AndAlso response.Chars(i + 1) <> """"
-                            i += 1
-                        End While
-                        If i = response.Length Then Return New WorldInfo
-                        response = response.Substring(i)
-                        Log("[MCPing] Server Response: " & response)
-
+                        '解析返回的 JSON 文本
                         Dim j = JObject.Parse(response)
 
-                        Return New WorldInfo With {
+                        Dim world As New WorldInfo With {
                         .VersionName = j("version")("name"),
                         .PlayerMax = j("players")("max"),
                         .PlayerOnline = j("players")("online"),
-                        .Description = j("description")("text"),
-                        .Favicon = j("favicon"),
-                        .Port = _Port
+                        .Favicon = If(j("favicon"), ""),
+                        .Port = _Port,
+                        .Latency = Math.Round((endTime - startTime).TotalMilliseconds)
                         }
+                        Dim descObj = j("description")
+                        world.Description = ""
+                        If descObj.Type = JTokenType.Object AndAlso descObj("extra") IsNot Nothing Then
+                            Log("[MCPing] 获取到的内容为 extra 形式", LogLevel.Debug)
+                            world.Description = MinecraftFormatter.ConvertToMinecraftFormat(descObj)
+                        ElseIf descObj.Type = JTokenType.Object AndAlso descObj("text") IsNot Nothing Then
+                            Log("[MCPing] 获取到的内容为 text 形式", LogLevel.Debug)
+                            world.Description = descObj("text").ToString()
+                        ElseIf descObj.Type = JTokenType.String Then
+                            Log("[MCPing] 获取到的内容为 string 形式", LogLevel.Debug)
+                            world.Description = descObj.ToString()
+                        End If
+                        Return world
                     End Using
                 End Using
             Catch ex As Exception
                 Log(ex, "[MCPing] Error: " & ex.Message)
             End Try
-            Return New WorldInfo
+            Return Nothing
         End Function
 
 
@@ -115,6 +181,29 @@ Public Class ModLink
             packet.AddRange(GetVarInt(1))
             packet.AddRange(GetVarInt(0))
             Return packet.ToArray() ' 状态请求数据包
+        End Function
+
+        Private Function ParseVarInt(bytes As Byte(), ByRef value As Integer) As (Success As Boolean, BytesNeeded As Integer, Value As Integer)
+            value = 0
+            Dim shift = 0
+            Dim index = 0
+
+            Do While index < bytes.Length
+                Dim b = bytes(index)
+                value = value Or (CInt(b And &H7F) << shift)
+                shift += 7
+                index += 1
+
+                If (b And &H80) = 0 Then
+                    Return (True, 0, value)
+                End If
+
+                If index >= 5 Then
+                    Return (False, 0, 0)
+                End If
+            Loop
+
+            Return (False, 5 - index, 0)
         End Function
 
         Private Function GetVarInt(value As Integer) As Byte()
@@ -273,9 +362,9 @@ Public Class ModLink
         JavaNames.Add("java")
         JavaNames.Add("javaw")
 
-        For Each java In JavaNames
-            Dim JavaProcesses As Process() = Process.GetProcessesByName(java)
-            Log($"[MCDetect] 找到 {java} 进程 {JavaProcesses.Length} 个")
+        For Each TargetJava In JavaNames
+            Dim JavaProcesses As Process() = Process.GetProcessesByName(TargetJava)
+            Log($"[MCDetect] 找到 {TargetJava} 进程 {JavaProcesses.Length} 个")
 
             If JavaProcesses Is Nothing OrElse JavaProcesses.Length = 0 Then
                 Continue For
@@ -462,6 +551,75 @@ Public Class ModLink
         End Try
     End Sub
 
+#End Region
+
+#Region "NAT 测试"
+    ''' <summary>
+    ''' 进行网络测试，包括 IPv4 NAT 类型测试和 IPv6 支持情况测试
+    ''' </summary>
+    ''' <returns>NAT 类型 + IPv6 支持与否</returns>
+    Public Shared Function NetTest() As String()
+        '申请通过防火墙以准确测试 NAT 类型
+        Dim RetryTime As Integer = 0
+        Try
+PortRetry:
+            Dim TestTcpListener = TcpListener.Create(RandomInteger(20000, 65000))
+            TestTcpListener.Start()
+            Thread.Sleep(200)
+            TestTcpListener.Stop()
+        Catch ex As Exception
+            Log(ex, "[Link] 请求防火墙通过失败")
+            If RetryTime >= 3 Then
+                Log("[Link] 请求防火墙通过失败次数已达 3 次，不再重试")
+                Exit Try
+            End If
+            GoTo PortRetry
+        End Try
+        'IPv4 NAT 测试
+        Dim NATType As String
+        Dim STUNServerDomain As String = "stun.miwifi.com" '指定 STUN 服务器
+        Log("[STUN] 指定的 STUN 服务器: " + STUNServerDomain)
+        Try
+            Dim STUNServerIP As String = Dns.GetHostAddresses(STUNServerDomain)(0).ToString() '解析 STUN 服务器 IP
+            Log("[STUN] 解析目标 STUN 服务器 IP: " + STUNServerIP)
+            Dim STUNServerEndPoint As IPEndPoint = New IPEndPoint(IPAddress.Parse(STUNServerIP), 3478) '设置 IPEndPoint
+
+            STUNClient.ReceiveTimeout = 500 '设置超时
+            Log("[STUN] 开始进行 NAT 测试")
+            Dim STUNTestResult = STUNClient.Query(STUNServerEndPoint, STUNQueryType.ExactNAT, True) '进行 STUN 测试
+
+            NATType = STUNTestResult.NATType.ToString()
+            Log("[STUN] 本地 NAT 类型: " + NATType)
+        Catch ex As Exception
+            Log(ex, "[STUN] 进行 NAT 测试失败", LogLevel.Normal)
+            NATType = "TestFailed"
+        End Try
+
+        'IPv6
+        Dim IPv6Status As String = "Unsupported"
+        Try
+            For Each ip In NatDiscovery.GetIPAddresses()
+                If ip.AddressFamily() = AddressFamily.InterNetworkV6 Then 'IPv6
+                    If ip.IsIPv6LinkLocal() OrElse ip.IsIPv6SiteLocal() OrElse ip.IsIPv6Teredo() OrElse ip.IsIPv4MappedToIPv6() Then
+                        Continue For
+                    ElseIf ip.IsPublic() Then
+                        Log("[IP] 检测到 IPv6 公网地址")
+                        IPv6Status = "Public"
+                        Exit For
+                    ElseIf ip.IsPrivate() AndAlso Not IPv6Status = "Supported" Then
+                        Log("[IP] 检测到 IPv6 支持")
+                        IPv6Status = "Supported"
+                        Continue For
+                    End If
+                End If
+            Next
+        Catch ex As Exception
+            Log(ex, "[IP] 进行 IPv6 测试失败", LogLevel.Normal)
+            IPv6Status = "Unknown"
+        End Try
+
+        Return {NATType, IPv6Status}
+    End Function
 #End Region
 
 End Class

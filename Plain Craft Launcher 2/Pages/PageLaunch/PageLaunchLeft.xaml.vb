@@ -9,7 +9,7 @@
         AprilPosTrans.X = 0
         AprilPosTrans.Y = 0
 
-        If IsLoad Then Exit Sub
+        If IsLoad Then Return
         IsLoad = True
         AniControlEnabled += 1
 
@@ -175,6 +175,7 @@
         Ms
         Profile
         ProfileSkin
+        Offline
     End Enum
     ''' <summary>
     ''' 当前页面的种类。
@@ -195,6 +196,9 @@
             Case PageType.ProfileSkin
                 If IsNothing(FrmLoginProfileSkin) Then FrmLoginProfileSkin = New PageLoginProfileSkin
                 Return FrmLoginProfileSkin
+            Case PageType.Offline
+                If IsNothing(FrmLoginOffline) Then FrmLoginOffline = New PageLoginOffline
+                Return FrmLoginOffline
             Case Else
                 Throw New ArgumentOutOfRangeException("Type", "即将切换的登录分页编号越界")
         End Select
@@ -259,21 +263,18 @@
         If Not TargetLoginType = Nothing Then
             If TargetLoginType = McLoginType.Ms Then Type = PageType.Ms
             If TargetLoginType = McLoginType.Auth Then Type = PageType.Auth
+            If TargetLoginType = McLoginType.Legacy Then Type = PageType.Offline
         Else
             If SelectedProfile IsNot Nothing Then
                 Type = PageType.ProfileSkin
-                PanTypeOne.Visibility = Visibility.Hidden
                 BtnLaunch.IsEnabled = True
             Else
                 Type = PageType.Profile
-                PanTypeOne.Visibility = Visibility.Visible
                 If Not BtnLaunch.Text = "下载游戏" Then BtnLaunch.IsEnabled = False
             End If
-            PathTypeOne.Data = (New GeometryConverter).ConvertFromString(Logo.IconButtonUser)
-            LabTypeOne.Text = "档案管理"
         End If
         '刷新页面
-        If PageCurrent = Type Then Exit Sub
+        If PageCurrent = Type Then Return
         PageChange(Type, Anim)
     End Sub
 #End Region
@@ -309,9 +310,10 @@
             If Data.IsAborted Then Throw New ThreadInterruptedException("当前任务已取消：" & UserName)
             Data.Output = Result
         Catch ex As Exception
-            If ex.GetType.Name = "ThreadInterruptedException" Then
+            If ex.GetType().Name = "ThreadInterruptedException" Then
                 Data.Output = ""
-                Exit Sub
+                Log("[Minecraft] 已取消皮肤获取：" & UserName)
+                Return
             ElseIf GetExceptionSummary(ex).Contains("429") Then
                 Data.Output = PathImage & "Skins/" & McSkinSex(GetOfflineUuid(UserName)) & ".png"
                 Log("[Minecraft] 获取正版皮肤失败（" & UserName & "）：获取皮肤太过频繁，请 5 分钟后再试！", LogLevel.Hint)
@@ -376,7 +378,7 @@ Finish:
         Catch ex As Exception
             If ex.GetType.Name = "ThreadInterruptedException" Then
                 Data.Output = ""
-                Exit Sub
+                Return
             ElseIf GetExceptionSummary(ex).Contains("429") Then
                 Data.Output = PathImage & "Skins/Steve.png"
                 Log("[Minecraft] 获取 Authlib-Injector 皮肤失败（" & UserName & "）：获取皮肤太过频繁，请 5 分钟后再试！", LogLevel.Hint)
@@ -405,13 +407,13 @@ Finish:
 
     '版本选择按钮
     Private Sub BtnVersion_Click(sender As Object, e As EventArgs) Handles BtnVersion.Click
-        If McLaunchLoader.State = LoadState.Loading Then Exit Sub
+        If McLaunchLoader.State = LoadState.Loading Then Return
         FrmMain.PageChange(FormMain.PageType.VersionSelect)
     End Sub
     '启动按钮
     Public Sub LaunchButtonClick() Handles BtnLaunch.Click
         If McLaunchLoader.State = LoadState.Loading OrElse Not BtnLaunch.IsEnabled OrElse
-            （FrmMain.PageRight IsNot Nothing AndAlso FrmMain.PageRight.PageState <> MyPageRight.PageStates.ContentStay AndAlso FrmMain.PageRight.PageState <> MyPageRight.PageStates.ContentEnter） Then Exit Sub
+            （FrmMain.PageRight IsNot Nothing AndAlso FrmMain.PageRight.PageState <> MyPageRight.PageStates.ContentStay AndAlso FrmMain.PageRight.PageState <> MyPageRight.PageStates.ContentEnter） Then Return
         '愚人节处理
         If IsAprilEnabled AndAlso Not IsAprilGiveup Then
             ThemeUnlock(12, False, "隐藏主题 滑稽彩 已解锁！")
@@ -436,7 +438,7 @@ Finish:
     Private BtnLaunchState As Integer = 0
     Private BtnLaunchVersion As McVersion = Nothing
     Public Sub RefreshButtonsUI() Handles BtnLaunch.Loaded
-        If Not BtnLaunch.IsLoaded Then Exit Sub
+        If Not BtnLaunch.IsLoaded Then Return
         '获取当前状态
         Dim CurrentState As Integer
         If (Not IsLoadFinished) OrElse McVersionListLoader.State = LoadState.Loading OrElse McFolderListLoader.State = LoadState.Loading Then
@@ -512,7 +514,7 @@ ExitRefresh:
     End Sub
     '版本设置按钮
     Private Sub BtnMore_Click(sender As Object, e As EventArgs) Handles BtnMore.Click
-        If McLaunchLoader.State = LoadState.Loading Then Exit Sub
+        If McLaunchLoader.State = LoadState.Loading Then Return
         McVersionCurrent.Load()
         PageVersionLeft.Version = McVersionCurrent
         If File.Exists(McVersionCurrent.Path + ".pclignore") Then
@@ -526,7 +528,7 @@ ExitRefresh:
     ''' </summary>
     Public Sub LaunchingRefresh()
         Try
-            If McLaunchLoaderReal.State = LoadState.Aborted Then Exit Sub
+            If McLaunchLoaderReal.State = LoadState.Aborted Then Return
             '阶段状态获取
             Dim IsLaunched As Boolean = False '是否已经启动游戏，只是在等待窗口
             Try
@@ -540,7 +542,7 @@ ExitRefresh:
                 LabLaunchingStage.Text = "已完成"
             Catch ex As Exception
                 Log(ex, "获取是否启动完成失败，可能是由于启动状态改变导致集合已修改")
-                Exit Sub
+                Return
             End Try
             If AniIsRun("Launch State Page") Then IsLaunched = False '等待页面切换动画完成
             '计算应显示的进度
@@ -601,7 +603,7 @@ ExitRefresh:
     Private ActualUsedWidth As Double
     Private Sub PanLaunchingInfo_SizeChangedW(sender As Object, e As SizeChangedEventArgs) Handles PanLaunchingInfo.SizeChanged
         Dim DeltaWidth As Double = e.NewSize.Width - e.PreviousSize.Width
-        If e.PreviousSize.Width = 0 OrElse IsWidthAnimating OrElse Math.Abs(DeltaWidth) < 1 OrElse PanLaunchingInfo.ActualWidth = 0 Then Exit Sub
+        If e.PreviousSize.Width = 0 OrElse IsWidthAnimating OrElse Math.Abs(DeltaWidth) < 1 OrElse PanLaunchingInfo.ActualWidth = 0 Then Return
         AniStart({
             AaWidth(PanLaunchingInfo, DeltaWidth, 180,, New AniEaseOutFluent),
             AaCode(Sub()
@@ -617,7 +619,7 @@ ExitRefresh:
     Private ActualUsedHeight As Double
     Private Sub PanLaunchingInfo_SizeChangedH(sender As Object, e As SizeChangedEventArgs) Handles PanLaunchingInfo.SizeChanged
         Dim DeltaHeight As Double = e.NewSize.Height - e.PreviousSize.Height
-        If e.PreviousSize.Height = 0 OrElse IsHeightAnimating OrElse Math.Abs(DeltaHeight) < 1 OrElse PanLaunchingInfo.ActualHeight = 0 Then Exit Sub
+        If e.PreviousSize.Height = 0 OrElse IsHeightAnimating OrElse Math.Abs(DeltaHeight) < 1 OrElse PanLaunchingInfo.ActualHeight = 0 Then Return
         AniStart({
             AaHeight(PanLaunchingInfo, DeltaHeight, 180,, New AniEaseOutFluent),
             AaCode(Sub()

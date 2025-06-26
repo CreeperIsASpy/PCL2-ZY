@@ -51,17 +51,14 @@
         AniControlEnabled -= 1
 
         '非重复加载部分
-        If IsLoad Then Exit Sub
+        If IsLoad Then Return
         IsLoad = True
 
+        AddHandler FrmMain.KeyDown, AddressOf FrmMain_KeyDown
         '调整按钮边距（这玩意儿没法从 XAML 改）
         For Each Btn As MyRadioButton In PanFilter.Children
             Btn.LabText.Margin = New Thickness(-2, 0, 8, 0)
         Next
-
-#If DEBUG Then
-        BtnManageCheck.Visibility = Visibility.Visible
-#End If
 
     End Sub
     ''' <summary>
@@ -136,7 +133,7 @@
             Else
                 PanEmpty.Visibility = Visibility.Visible
                 PanBack.Visibility = Visibility.Collapsed
-                Exit Sub
+                Return
             End If
             '修改缓存
             ModItems.Clear()
@@ -147,7 +144,7 @@
             Filter = FilterType.All
             SearchBox.Text = "" '这会触发结果刷新，所以需要在 ModItems 更新之后，详见 #3124 的视频
             RefreshUI()
-            SetSortMethod(SortMethod.ModName)
+            SetSortMethod(SortMethod.CompName)
         Catch ex As Exception
             Log(ex, $"加载 {CurrentCompType} 列表 UI 失败", LogLevel.Feedback)
         End Try
@@ -204,7 +201,7 @@
     ''' 刷新整个 UI。
     ''' </summary>
     Public Sub RefreshUI()
-        If PanList Is Nothing Then Exit Sub
+        If PanList Is Nothing Then Return
         Dim ShowingMods = If(IsSearching, SearchResult, If(CompResourceListLoader.Output, New List(Of LocalCompFile))).Where(Function(m) CanPassFilter(m)).ToList
         '重新列出列表
         AniControlEnabled += 1
@@ -212,7 +209,10 @@
             PanList.Visibility = Visibility.Visible
             PanList.Children.Clear()
             For Each TargetMod In ShowingMods
+                If Not ModItems.ContainsKey(TargetMod.RawFileName) Then Continue For
                 Dim Item As MyLocalCompItem = ModItems(TargetMod.RawFileName)
+                MinecraftFormatter.SetColorfulTextLab(Item.LabTitle.Text, Item.LabTitle)
+                MinecraftFormatter.SetColorfulTextLab(Item.LabInfo.Text, Item.LabInfo)
                 Item.Checked = SelectedMods.Contains(TargetMod.RawFileName) '更新选中状态
                 PanList.Children.Add(Item)
             Next
@@ -357,24 +357,6 @@
         End Try
     End Sub
 
-#If DEBUG Then
-    ''' <summary>
-    ''' 检查 Mod。
-    ''' </summary>
-    Private Sub BtnManageCheck_Click(sender As Object, e As EventArgs) Handles BtnManageCheck.Click
-        Try
-            Dim Result = McModCheck(PageVersionLeft.Version, CompModLoader.Output)
-            If Result.Any Then
-                MyMsgBox(Join(Result, vbCrLf & vbCrLf), "Mod 检查结果")
-            Else
-                Hint("Mod 检查完成，未发现任何问题！", HintType.Finish)
-            End If
-        Catch ex As Exception
-            Log(ex, "进行 Mod 检查时出错", LogLevel.Feedback)
-        End Try
-    End Sub
-#End If
-
     ''' <summary>
     ''' 全选。
     ''' </summary>
@@ -411,6 +393,7 @@
         End If
         '获取并检查目标版本
         Dim TargetVersion As McVersion = McVersionCurrent
+        Dim ModFolder = TargetVersion.PathIndie & If(TargetVersion.Version.HasLabyMod, "labymod-neo\fabric\" & TargetVersion.Version.McName & "\", "") & "mods\"
         If FrmMain.PageCurrent = FormMain.PageType.VersionSetup Then TargetVersion = PageVersionLeft.Version
         If FrmMain.PageCurrent = FormMain.PageType.VersionSelect OrElse TargetVersion Is Nothing OrElse Not TargetVersion.Modable Then
             '正在选择版本，或当前版本不能安装 Mod
@@ -425,7 +408,7 @@ Install:
                 For Each ModFile In FilePathList
                     Dim NewFileName = GetFileNameFromPath(ModFile).Replace(".disabled", "").Replace(".old", "")
                     If Not NewFileName.Contains(".") Then NewFileName += ".jar" '#4227
-                    CopyFile(ModFile, TargetVersion.PathIndie & If(PageVersionLeft.Version.Version.HasLabyMod, "labymod-neo\fabric\" & PageVersionLeft.Version.Version.McName & "\", "") & "mods\" & NewFileName)
+                    CopyFile(ModFile, ModFolder & NewFileName)
                 Next
                 If FilePathList.Count = 1 Then
                     Hint($"已安装 {GetFileNameFromPath(FilePathList.First).Replace(".disabled", "").Replace(".old", "")}！", HintType.Finish)
@@ -434,7 +417,7 @@ Install:
                 End If
                 '刷新列表
                 If FrmMain.PageCurrent = FormMain.PageType.VersionSetup AndAlso FrmMain.PageCurrentSub = FormMain.PageSubType.VersionMod Then
-                    LoaderFolderRun(CompResourceListLoader, TargetVersion.PathIndie & If(PageVersionLeft.Version.Version.HasLabyMod, "labymod-neo\fabric\" & PageVersionLeft.Version.Version.McName & "\", "") & "mods\", LoaderFolderRunType.ForceRun, LoaderInput:=FrmVersionMod?.GetRequireLoaderData())
+                    LoaderFolderRun(CompResourceListLoader, ModFolder, LoaderFolderRunType.ForceRun, LoaderInput:=FrmVersionMod?.GetRequireLoaderData())
                 End If
             Catch ex As Exception
                 Log(ex, "复制 Mod 文件失败", LogLevel.Msgbox)
@@ -489,7 +472,6 @@ Install:
             Case CompType.ResourcePack : FrmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadResourcePack)
             Case CompType.Shader : FrmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadShader)
         End Select
-        PageComp.TargetVersion = Nothing
     End Sub
 
 #End Region
@@ -533,7 +515,8 @@ Install:
         ChangeAllSelected(False)
         AniControlEnabled += CacheAniControlEnabled
     End Sub
-    Private Sub PageVersionMod_KeyDown(sender As Object, e As KeyEventArgs) Handles Me.KeyDown
+    Private Sub FrmMain_KeyDown(sender As Object, e As KeyEventArgs) '监听自己的事件的话进入页面后不点击右侧控件就没办法监听到事件 (#4311)
+        If FrmMain.PageRight IsNot Me Then Return
         If My.Computer.Keyboard.CtrlKeyDown AndAlso e.Key = Key.A Then ChangeAllSelected(True)
     End Sub
 
@@ -608,7 +591,7 @@ Install:
 #End Region
 
 #Region "排序"
-    Private CurrentSortMethod As SortMethod = SortMethod.FileName
+    Private CurrentSortMethod As SortMethod = SortMethod.CompName
 
     Private Sub SetSortMethod(Target As SortMethod)
         CurrentSortMethod = Target
@@ -619,7 +602,7 @@ Install:
 
     Private Enum SortMethod
         FileName
-        ModName
+        CompName
         TagNums
         CreateTime
         ModFileSize
@@ -628,7 +611,7 @@ Install:
     Private Function GetSortName(Method As SortMethod) As String
         Select Case Method
             Case SortMethod.FileName : Return "文件名"
-            Case SortMethod.ModName : Return "资源名称"
+            Case SortMethod.CompName : Return "资源名称"
             Case SortMethod.TagNums : Return "标签数量"
             Case SortMethod.CreateTime : Return "加入时间"
             Case SortMethod.ModFileSize : Return "文件大小"
@@ -655,31 +638,28 @@ Install:
     Private ReadOnly SortLock As New Object
     Private Sub DoSort()
         SyncLock SortLock
-            If PanList Is Nothing OrElse PanList.Children.Count < 2 Then Exit Sub
+            Try
+                If PanList Is Nothing OrElse PanList.Children.Count < 2 Then Exit Sub
 
-            ' 将子元素转换为可排序的列表
-            Dim items = PanList.Children.OfType(Of MyLocalCompItem)().ToList()
-            Dim Method = GetSortMethod(CurrentSortMethod)
+                ' 将子元素转换为可排序的列表
+                Dim items = PanList.Children.OfType(Of MyLocalCompItem)().ToList()
+                Dim Method = GetSortMethod(CurrentSortMethod)
 
-            ' 根据排序类型处理特殊逻辑
-            If CurrentSortMethod = SortMethod.TagNums Then
                 ' 分离有效和无效项（保持原始相对顺序）
-                Dim valid = items.Where(Function(i) i.Entry.Comp IsNot Nothing).ToList()
-                Dim invalid = items.Except(valid).ToList()
-
+                Dim invalid = items.Where(Function(i) i.Entry Is Nothing OrElse (CurrentSortMethod = SortMethod.TagNums AndAlso i.Entry.Comp Is Nothing)).ToList()
+                Dim valid = items.Except(invalid).ToList()
                 ' 仅对有效项进行排序
-                valid.Sort(Function(x, y) Method(y.Entry, x.Entry))
-
+                valid.Sort(Function(x, y) Method(x.Entry, y.Entry))
                 ' 合并保持无效项的原始顺序
                 items = valid.Concat(invalid).ToList()
-            Else
-                ' 直接进行高效排序
-                items.Sort(Function(x, y) Method(y.Entry, x.Entry))
-            End If
 
-            ' 批量更新UI元素
-            PanList.Children.Clear()
-            items.ForEach(Sub(i) PanList.Children.Add(i))
+                ' 批量更新UI元素
+                PanList.Children.Clear()
+                items.ForEach(Sub(i) PanList.Children.Add(i))
+
+            Catch ex As Exception
+                Log(ex, "执行排序时出错", LogLevel.Hint)
+            End Try
         End SyncLock
     End Sub
 
@@ -687,27 +667,29 @@ Install:
         Select Case Method
             Case SortMethod.FileName
                 Return Function(a As LocalCompFile, b As LocalCompFile) As Integer
-                           Return String.Compare(b.FileName, a.FileName, StringComparison.OrdinalIgnoreCase)
+                           Return String.Compare(a.FileName, b.FileName, StringComparison.OrdinalIgnoreCase)
                        End Function
-            Case SortMethod.ModName
+            Case SortMethod.CompName
                 Return Function(a As LocalCompFile, b As LocalCompFile) As Integer
-                           Return String.Compare(b.Name, a.Name, StringComparison.OrdinalIgnoreCase)
+                           Return String.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)
                        End Function
             Case SortMethod.TagNums
                 Return Function(a As LocalCompFile, b As LocalCompFile) As Integer
-                           Return a.Comp.Tags.Count - b.Comp.Tags.Count
+                           Return b.Comp.Tags.Count - a.Comp.Tags.Count
                        End Function
             Case SortMethod.CreateTime
                 Return Function(a As LocalCompFile, b As LocalCompFile) As Integer
-                           Return If((New FileInfo(a.Path)).CreationTime > (New FileInfo(b.Path)).CreationTime, 1, -1)
+                           Dim aDate = New FileInfo(a.Path).CreationTime
+                           Dim bDate = New FileInfo(b.Path).CreationTime
+                           Return If(aDate = bDate, 0, If(aDate > bDate, -1, 1))
                        End Function
             Case SortMethod.ModFileSize
                 Return Function(a As LocalCompFile, b As LocalCompFile) As Integer
-                           Return (New FileInfo(a.Path)).Length - (New FileInfo(b.Path)).Length
+                           Return (New FileInfo(b.Path)).Length - (New FileInfo(a.Path)).Length
                        End Function
             Case Else
                 Return Function(a As LocalCompFile, b As LocalCompFile) As Integer
-                           Return -StrComp(a.Name, b.Name)
+                           Return String.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase)
                        End Function
         End Select
     End Function
@@ -807,7 +789,7 @@ Install:
             If MyMsgBox($"新版本 Mod 可能不兼容旧存档或者其他 Mod，这可能导致游戏崩溃，甚至永久损坏存档！{vbCrLf}如果你在游玩整合包，请千万不要自行更新 Mod！{vbCrLf}{vbCrLf}在更新前，请先备份存档，并检查 Mod 的更新日志。{vbCrLf}如果更新后出现问题，你也可以在回收站找回更新前的 Mod。", "Mod 更新警告", "我已了解风险，继续更新", "取消", IsWarn:=True) = 1 Then
                 Setup.Set("HintUpdateMod", True)
             Else
-                Exit Sub
+                Return
             End If
         End If
         Try
@@ -899,7 +881,7 @@ Install:
                     Case LoadState.Aborted
                         Hint("资源更新已中止！", HintType.Info)
                     Case Else
-                        Exit Sub
+                        Return
                 End Select
                 Log($"[CompUpdate] 已从正在进行资源更新的文件夹列表移除：{PathMods}")
                 UpdatingVersions.Remove(PathMods)
@@ -982,7 +964,7 @@ Install:
                 RefreshBars()
             End If
             '显示结果提示
-            If Not IsSuccessful Then Exit Sub
+            If Not IsSuccessful Then Return
             If IsShiftPressed Then
                 If ModList.Count = 1 Then
                     Hint($"已彻底删除 {ModList.Single.FileName}！", HintType.Finish)
@@ -1046,7 +1028,7 @@ Install:
                     .Additional = {ModEntry.Comp, New List(Of String), PageVersionLeft.Version.Version.McName,
                         If(PageVersionLeft.Version.Version.HasForge, CompLoaderType.Forge,
                         If(PageVersionLeft.Version.Version.HasNeoForge, CompLoaderType.NeoForge,
-                        If(PageVersionLeft.Version.Version.HasFabric OrElse ModdedLabyMod, CompLoaderType.Fabric, CompLoaderType.Any)))}})
+                        If(PageVersionLeft.Version.Version.HasFabric OrElse ModdedLabyMod, CompLoaderType.Fabric, CompLoaderType.Any))), CurrentCompType}})
             Else
                 '获取信息
                 Dim ContentLines As New List(Of String)

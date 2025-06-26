@@ -9,28 +9,29 @@ Imports System.Xaml
 Imports System.Threading.Tasks
 Imports Newtonsoft.Json
 Imports Newtonsoft.Json.Serialization
+Imports PCL.Core.Helper
 
 Public Module ModBase
 
 #Region "声明"
 
     '下列版本信息由更新器自动修改
-    Public Const VersionBaseName As String = "2.11.0" '不含分支前缀的显示用版本名
-    Public Const VersionStandardCode As String = "2.11.0." & VersionBranchCode '标准格式的四段式版本号
+    Public Const VersionBaseName As String = "2.11.8" '不含分支前缀的显示用版本名
+    Public Const VersionStandardCode As String = "2.11.8." & VersionBranchCode
     Public Const CommitHash As String = "native" 'Commit Hash，由 GitHub Workflow 自动替换
     Public CommitHashShort As String = If(CommitHash = "native", "native", CommitHash.Substring(0, 7)) 'Commit Hash，取前 7 位
-    Public Const UpstreamVersion As String = "2.10.0" '上游版本
-    Public Const VersionCode As Integer = 368 '内部版本号
+    Public Const UpstreamVersion As String = "2.10.3" '上游版本
+    Public Const VersionCode As Integer = 380 '内部版本号
     '自动生成的版本信息
-#If RELEASE Then
-    Public Const VersionBranchName As String = "Slow Ring"
-    Public Const VersionBranchCode As String = "0"
-#ElseIf BETA Then
-    Public Const VersionBranchName As String = "Fast Ring"
-    Public Const VersionBranchCode As String = "50"
-#Else
+#If DEBUG Then
     Public Const VersionBranchName As String = "Debug"
     Public Const VersionBranchCode As String = "100"
+#ElseIf DEBUGCI Then
+    Public Const VersionBranchName As String = "CI"
+    Public Const VersionBranchCode As String = "50"
+#Else
+    Public Const VersionBranchName As String = "Publish"
+    Public Const VersionBranchCode As String = "0"
 #End If
 
     ''' <summary>
@@ -101,6 +102,8 @@ Public Module ModBase
     ''' AppData 中的 PCLCE 配置文件夹路径，以 \ 结尾。
     ''' </summary>
     Public PathAppdataConfig As String = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) & If(VersionBranchName = "Debug", "\.pclcedebug\", "\.pclce\")
+
+    Public PathHelpFolder As String = PathTemp & "CE\Help\"
 
 #End Region
 
@@ -211,6 +214,12 @@ Public Module ModBase
         ''' 图标，添加，1x
         ''' </summary>
         Public Const IconButtonAdd As String = "M512.277 954.412c-118.89 0-230.659-46.078-314.73-129.73S67.12 629.666 67.12 511.222s46.327-229.744 130.398-313.427 195.82-129.73 314.73-129.73 230.659 46.078 314.72 129.73S957.397 392.81 957.397 511.183 911.078 740.96 826.97 824.642s-195.8 129.77-314.692 129.77z m0-822.784c-101.972 0-197.809 39.494-269.865 111.222s-111.7 166.997-111.7 268.373 39.653 196.695 111.67 268.335S410.246 890.78 512.248 890.78s197.809-39.484 269.865-111.222 111.7-166.998 111.67-268.374c-0.03-101.375-39.654-196.665-111.67-268.303S614.22 131.628 512.277 131.628z m222.585 347.8H544.073V288.64c-0.76-17.561-15.613-31.18-33.173-30.419-16.495 0.714-29.704 13.924-30.419 30.419v190.787H289.703c-17.56 0.761-31.179 15.614-30.419 33.174 0.715 16.494 13.924 29.703 30.42 30.418H480.48v190.788c0.761 17.56 15.614 31.179 33.174 30.419 16.494-0.715 29.703-13.925 30.418-30.42V543.02h190.788c17.56 0.762 32.413-12.857 33.173-30.418 0.762-17.561-12.858-32.414-30.419-33.174a31.683 31.683 0 0 0-2.753 0z"
+        ''' <summary>
+        ''' 图标，开始游戏，1x
+        ''' </summary>
+        Public Const IconPlayGame As String = "M213.333333 896V128a42.666667 42.666667 0 0 1 65.706667-35.882667l597.333333 384a42.666667 42.666667 0 0 1 0 71.765334l-597.333333 384A42.666667 42.666667 0 0 1 213.333333 896z m85.333334-78.165333L774.4 512 298.666667 206.165333v611.669334z"
+        Public Const IconButtonEnable As String = "M512 0a512 512 0 1 0 512 512A512 512 0 0 0 512 0z m0 921.6a409.6 409.6 0 1 1 409.6-409.6 409.6 409.6 0 0 1-409.6 409.6z M716.8 339.968l-256 253.44L328.192 460.8A51.2 51.2 0 0 0 256 532.992l168.448 168.96a51.2 51.2 0 0 0 72.704 0l289.28-289.792A51.2 51.2 0 0 0 716.8 339.968z"
+        Public Const IconButtonDisable As String = "M508 990.4c-261.6 0-474.4-212-474.4-474.4S246.4 41.6 508 41.6s474.4 212 474.4 474.4S769.6 990.4 508 990.4zM508 136.8c-209.6 0-379.2 169.6-379.2 379.2 0 209.6 169.6 379.2 379.2 379.2s379.2-169.6 379.2-379.2C887.2 306.4 717.6 136.8 508 136.8zM697.6 563.2 318.4 563.2c-26.4 0-47.2-21.6-47.2-47.2 0-26.4 21.6-47.2 47.2-47.2l379.2 0c26.4 0 47.2 21.6 47.2 47.2C744.8 542.4 724 563.2 697.6 563.2z"
     End Class
 
 #End Region
@@ -395,6 +404,11 @@ Public Module ModBase
                 FromHSL(sH, sS, sL)
             End If
             A = 255
+            Return Me
+        End Function
+        
+        Public Function Alpha(sA As Double) As MyColor
+            A = sA
             Return Me
         End Function
 
@@ -897,13 +911,16 @@ Public Module ModBase
     End Function
 
     '读取、写入、复制文件
+    ''' <summary>
+    ''' 复制文件。会自动创建文件夹、会覆盖已有的文件。
+    ''' </summary>
     Public Sub CopyFile(FromPath As String, ToPath As String)
         Try
             '还原文件路径
             If Not FromPath.Contains(":\") Then FromPath = Path & FromPath
             If Not ToPath.Contains(":\") Then ToPath = Path & ToPath
             '如果复制同一个文件则跳过
-            If FromPath = ToPath Then Exit Sub
+            If FromPath = ToPath Then Return
             '确保目录存在
             Directory.CreateDirectory(GetPathFromFullPath(ToPath))
             '复制文件
@@ -915,7 +932,6 @@ Public Module ModBase
     ''' <summary>
     ''' 读取文件，如果失败则返回空数组。
     ''' </summary>
-    ''' <param name="FilePath">文件完整或相对路径。</param>
     Public Function ReadFileBytes(FilePath As String, Optional Encoding As Encoding = Nothing) As Byte()
         Try
             '还原文件路径
@@ -1197,14 +1213,15 @@ Re:
         Try
             '获取 MD5
             Dim Result As New StringBuilder()
-            Dim File As New FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-            Dim MD5 As MD5 = New MD5CryptoServiceProvider()
-            Dim Retval As Byte() = MD5.ComputeHash(File)
-            File.Close()
-            For i = 0 To Retval.Length - 1
-                Result.Append(Retval(i).ToString("x2"))
-            Next
-            Return Result.ToString
+            Using fs As New FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                Using hasher = MD5.Create()
+                    Dim Retval As Byte() = hasher.ComputeHash(fs)
+                    For i = 0 To Retval.Length - 1
+                        Result.Append(Retval(i).ToString("x2"))
+                    Next
+                    Return Result.ToString
+                End Using
+            End Using
         Catch ex As Exception
             If Retry OrElse TypeOf ex Is FileNotFoundException Then
                 Log(ex, "获取文件 MD5 失败：" & FilePath)
@@ -1227,15 +1244,16 @@ Re:
             ''检测该文件是否在下载中，若在下载则放弃检测
             'If IgnoreOnDownloading AndAlso NetManage.Files.ContainsKey(FilePath) AndAlso NetManage.Files(FilePath).State <= NetState.Merge Then Return ""
             '获取 SHA512
-            Dim file As New FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-            Dim sha512 As SHA512 = New SHA512CryptoServiceProvider()
-            Dim retval As Byte() = sha512.ComputeHash(file)
-            file.Close()
-            Dim Result As New StringBuilder()
-            For i As Integer = 0 To retval.Length - 1
-                Result.Append(retval(i).ToString("x2"))
-            Next
-            Return Result.ToString
+            Using fs As New FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                Using hasher = SHA512.Create()
+                    Dim retval As Byte() = hasher.ComputeHash(fs)
+                    Dim Result As New StringBuilder(retval.Length * 2) '预设容量，避免多次扩容导致性能问题
+                    For i As Integer = 0 To retval.Length - 1
+                        Result.Append(retval(i).ToString("x2"))
+                    Next
+                    Return Result.ToString
+                End Using
+            End Using
         Catch ex As Exception
             If Retry OrElse TypeOf ex Is FileNotFoundException Then
                 Log(ex, "获取文件 SHA512 失败：" & FilePath)
@@ -1258,15 +1276,16 @@ Re:
             ''检测该文件是否在下载中，若在下载则放弃检测
             'If IgnoreOnDownloading AndAlso NetManage.Files.ContainsKey(FilePath) AndAlso NetManage.Files(FilePath).State <= NetState.Merge Then Return ""
             '获取 SHA256
-            Dim file As New FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-            Dim sha256 As SHA256 = New SHA256CryptoServiceProvider()
-            Dim retval As Byte() = sha256.ComputeHash(file)
-            file.Close()
-            Dim Result As New StringBuilder()
-            For i As Integer = 0 To retval.Length - 1
-                Result.Append(retval(i).ToString("x2"))
-            Next
-            Return Result.ToString
+            Using fs As New FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                Using hasher = SHA256.Create()
+                    Dim retval As Byte() = hasher.ComputeHash(fs)
+                    Dim Result As New StringBuilder(retval.Length * 2) '预设容量，避免多次扩容导致性能问题
+                    For i As Integer = 0 To retval.Length - 1
+                        Result.Append(retval(i).ToString("x2"))
+                    Next
+                    Return Result.ToString
+                End Using
+            End Using
         Catch ex As Exception
             If Retry OrElse TypeOf ex Is FileNotFoundException Then
                 Log(ex, "获取文件 SHA256 失败：" & FilePath)
@@ -1287,15 +1306,16 @@ Re:
 Re:
         Try
             '获取 SHA1
-            Dim file As New FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-            Dim sha1 As SHA1 = New SHA1CryptoServiceProvider()
-            Dim retval As Byte() = sha1.ComputeHash(file)
-            file.Close()
-            Dim Result As New StringBuilder()
-            For i As Integer = 0 To retval.Length - 1
-                Result.Append(retval(i).ToString("x2"))
-            Next
-            Return Result.ToString
+            Using fs As New FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                Using hasher = SHA1.Create()
+                    Dim retval As Byte() = hasher.ComputeHash(fs)
+                    Dim Result As New StringBuilder(retval.Length * 2) '预设容量，避免多次扩容导致性能问题
+                    For i As Integer = 0 To retval.Length - 1
+                        Result.Append(retval(i).ToString("x2"))
+                    Next
+                    Return Result.ToString
+                End Using
+            End Using
         Catch ex As Exception
             If Retry OrElse TypeOf ex Is FileNotFoundException Then
                 Log(ex, "获取文件 SHA1 失败：" & FilePath)
@@ -1313,13 +1333,14 @@ Re:
     ''' </summary>
     Public Function GetAuthSHA1(Stream As Stream) As String
         Try
-            Dim sha1 As SHA1 = New SHA1CryptoServiceProvider()
-            Dim retval As Byte() = sha1.ComputeHash(Stream)
-            Dim Result As New StringBuilder()
-            For i As Integer = 0 To retval.Length - 1
-                Result.Append(retval(i).ToString("x2"))
-            Next
-            Return Result.ToString
+            Using hasher = SHA1.Create()
+                Dim retval As Byte() = hasher.ComputeHash(Stream)
+                Dim Result As New StringBuilder(retval.Length * 2) '预设容量，避免多次扩容导致性能问题
+                For i As Integer = 0 To retval.Length - 1
+                    Result.Append(retval(i).ToString("x2"))
+                Next
+                Return Result.ToString
+            End Using
         Catch ex As Exception
             Log(ex, "获取流 SHA1 失败")
             Return ""
@@ -1361,43 +1382,40 @@ Re:
         ''' </summary>
         Public Function Check(LocalPath As String) As String
             Try
+                Log($"[Checker] 开始校验文件 {LocalPath}", LogLevel.Developer)
                 Dim Info As New FileInfo(LocalPath)
                 If Not Info.Exists Then Return "文件不存在：" & LocalPath
                 Dim FileSize As Long = Info.Length
-                Dim ErrorMessage = ""
-                Dim Passed As Integer = 0
+                Dim ErrorMessage As New List(Of String)
+                Dim AllowIgnore As Boolean = False '允许相信哈希正确但是大小不正确
                 If Not String.IsNullOrEmpty(Hash) Then
-                    Passed += 1
                     If Hash.Length < 35 Then 'MD5
-                        If Hash.ToLowerInvariant <> GetFileMD5(LocalPath) Then
-                            ErrorMessage += "文件 MD5 应为 " & Hash & "，实际为 " & GetFileMD5(LocalPath) & vbCrLf
-                            Passed -= 1
+                        Dim ComputedHash As String = GetFileMD5(LocalPath)
+                        If Hash.ToLowerInvariant <> ComputedHash Then
+                            ErrorMessage.Add("文件 MD5 应为 " & Hash & "，实际为 " & ComputedHash)
                         End If
                     ElseIf Hash.Length = 64 Then 'SHA256
-                        If Hash.ToLowerInvariant <> GetFileSHA256(LocalPath) Then
-                            ErrorMessage += "文件 SHA256 应为 " & Hash & "，实际为 " & GetFileSHA256(LocalPath) & vbCrLf
-                            Passed -= 1
+                        Dim ComputedHash As String = GetFileSHA256(LocalPath)
+                        If Hash.ToLowerInvariant <> ComputedHash Then
+                            ErrorMessage.Add("文件 SHA256 应为 " & Hash & "，实际为 " & ComputedHash)
                         End If
                     Else 'SHA1 (40)
-                        If Hash.ToLowerInvariant <> GetFileSHA1(LocalPath) Then
-                            ErrorMessage += "文件 SHA1 应为 " & Hash & "，实际为 " & GetFileSHA1(LocalPath) & vbCrLf
-                            Passed -= 1
+                        Dim ComputedHash As String = GetFileSHA1(LocalPath)
+                        If Hash.ToLowerInvariant <> ComputedHash Then
+                            ErrorMessage.Add("文件 SHA1 应为 " & Hash & "，实际为 " & ComputedHash)
                         End If
                     End If
+                    AllowIgnore = ErrorMessage.Count = 0
                 End If
 
-                If ActualSize >= 0 AndAlso ActualSize <> FileSize Then
-                    ErrorMessage += $"文件大小应为 {ActualSize} B，实际为 {FileSize} B" &
-                        If(FileSize < 2000, "，内容为：" & ReadFile(LocalPath), "") & vbCrLf
-                Else
-                    Passed += 1
+                If ActualSize >= 0 AndAlso ActualSize <> FileSize AndAlso Not AllowIgnore Then '不允许忽略大小不正确的情况
+                    ErrorMessage.Add($"文件大小应为 {ActualSize} B，实际为 {FileSize} B" &
+                        If(FileSize < 2000, "，内容为" & ReadFile(LocalPath), ""))
                 End If
 
                 If MinSize >= 0 AndAlso MinSize > FileSize Then
-                    ErrorMessage += $"文件大小应大于 {MinSize} B，实际为 {FileSize} B" &
-                        If(FileSize < 2000, "，内容为：" & ReadFile(LocalPath), "") & vbCrLf
-                Else
-                    Passed += 1
+                    ErrorMessage.Add($"文件大小应大于 {MinSize} B，实际为 {FileSize} B" &
+                        If(FileSize < 2000, "，内容为：" & ReadFile(LocalPath), ""))
                 End If
 
                 If IsJson Then
@@ -1409,7 +1427,10 @@ Re:
                         Throw New Exception("不是有效的 Json 文件", ex)
                     End Try
                 End If
-                If Passed = 0 Then Return ErrorMessage
+                If ErrorMessage.Count <> 0 Then
+                    ErrorMessage.Insert(0, $"实际校验地址：{LocalPath}")
+                    Return ErrorMessage.Join(";")
+                End If
                 Return Nothing
             Catch ex As Exception
                 Log(ex, "检查文件出错")
@@ -1495,7 +1516,7 @@ RetryDir:
         Try
             Directory.Delete(Path, True)
         Catch ex As Exception
-            If Not RetriedDir Then
+            If Not RetriedDir AndAlso Not RunInUi() Then
                 RetriedDir = True
                 Log(ex, $"删除文件夹失败，将在 0.3s 后重试（{Path}）")
                 Thread.Sleep(300)
@@ -1607,7 +1628,7 @@ RetryDir:
         '常见错误（记得同时修改下面的）
         Dim CommonReason As String = Nothing
         If TypeOf InnerEx Is TypeLoadException OrElse TypeOf InnerEx Is BadImageFormatException OrElse TypeOf InnerEx Is MissingMethodException OrElse TypeOf InnerEx Is NotImplementedException OrElse TypeOf InnerEx Is TypeInitializationException Then
-            CommonReason = "PCL 的运行环境存在问题。请尝试重新安装 .NET Framework 4.8 然后再试。若无法安装，请先卸载较新版本的 .NET Framework，然后再尝试安装。"
+            CommonReason = "PCL 的运行环境存在问题。请尝试重新安装 .NET Framework 4.8.1 然后再试。若无法安装，请先卸载较新版本的 .NET Framework，然后再尝试安装。"
         ElseIf TypeOf InnerEx Is UnauthorizedAccessException Then
             CommonReason = "PCL 的权限不足。请尝试右键 PCL，选择以管理员身份运行。"
         ElseIf TypeOf InnerEx Is OutOfMemoryException Then
@@ -1616,7 +1637,7 @@ RetryDir:
             CommonReason = "由于操作系统或显卡存在问题，导致出现错误。请尝试重启 PCL。"
         ElseIf {"远程主机强迫关闭了", "远程方已关闭传输流", "未能解析此远程名称", "由于目标计算机积极拒绝",
                 "操作已超时", "操作超时", "服务器超时", "连接超时"}.Any(Function(s) DescList.Any(Function(l) l.Contains(s))) Then
-            CommonReason = "你的网络环境不佳，导致难以连接到服务器。请检查网络，多重试几次，或尝试使用 VPN。"
+            CommonReason = "你的网络环境不佳，导致难以连接到服务器。请稍后重试，或使用 VPN 以改善网络环境。"
         ElseIf TypeOf InnerEx Is PlatformNotSupportedException Then
             CommonReason = "你当前的 Windows 版本过低，无法运行当前版本的 PCL。请升级到 Windows 10 或更高版本后再试。"
         End If
@@ -1652,7 +1673,7 @@ RetryDir:
         '常见错误（记得同时修改上面的）
         Dim CommonReason As String = Nothing
         If TypeOf InnerEx Is TypeLoadException OrElse TypeOf InnerEx Is BadImageFormatException OrElse TypeOf InnerEx Is MissingMethodException OrElse TypeOf InnerEx Is NotImplementedException OrElse TypeOf InnerEx Is TypeInitializationException Then
-            CommonReason = "PCL 的运行环境存在问题。请尝试重新安装 .NET Framework 4.8 然后再试。若无法安装，请先卸载较新版本的 .NET Framework，然后再尝试安装。"
+            CommonReason = "PCL 的运行环境存在问题。请尝试重新安装 .NET Framework 4.8.1 然后再试。若无法安装，请先卸载较新版本的 .NET Framework，然后再尝试安装。"
         ElseIf TypeOf InnerEx Is UnauthorizedAccessException Then
             CommonReason = "PCL 的权限不足。请尝试右键 PCL，选择以管理员身份运行。"
         ElseIf TypeOf InnerEx Is OutOfMemoryException Then
@@ -1661,7 +1682,7 @@ RetryDir:
             CommonReason = "由于操作系统或显卡存在问题，导致出现错误。请尝试重启 PCL。"
         ElseIf {"远程主机强迫关闭了", "远程方已关闭传输流", "未能解析此远程名称", "由于目标计算机积极拒绝",
                 "操作已超时", "操作超时", "服务器超时", "连接超时"}.Any(Function(s) Desc.Contains(s)) Then
-            CommonReason = "你的网络环境不佳，导致难以连接到服务器。请检查网络，多重试几次，或尝试使用 VPN。"
+            CommonReason = "你的网络环境不佳，导致难以连接到服务器。请稍后重试，或使用 VPN 以改善网络环境。"
         ElseIf TypeOf InnerEx Is PlatformNotSupportedException Then
             CommonReason = "你当前的 Windows 版本过低，无法运行当前版本的 PCL。请升级到 Windows 10 或更高版本后再试。"
         End If
@@ -2142,8 +2163,8 @@ RetryDir:
 #Region "系统"
 
     ''' <summary>
-    ''' 线程安全的，可以直接使用 For Each 的 List。
-    ''' 在使用 For Each 循环时，列表的结果可能并非最新，但不会抛出异常。
+    ''' 线程安全的 List。
+    ''' 通过在 For Each 循环中使用一个浅表副本规避多线程操作或移除自身导致的异常。
     ''' </summary>
     Public Class SafeList(Of T)
         Inherits SynchronizedCollection(Of T)
@@ -2175,8 +2196,8 @@ RetryDir:
     End Class
 
     ''' <summary>
-    ''' 线程安全的，可以直接使用 For Each 的字典。
-    ''' 在使用 For Each 循环时，字典的结果可能并非最新，但不会抛出异常。
+    ''' 线程安全的字典。
+    ''' 通过在 For Each 循环中使用一个浅表副本规避多线程操作或移除自身导致的异常。
     ''' </summary>
     Public Class SafeDictionary(Of TKey, TValue)
         Implements IDictionary(Of TKey, TValue)
@@ -2337,12 +2358,14 @@ RetryDir:
         Return NewProcess.ExitCode
     End Function
 
+    Public IsRestrictedFeatAllowed As Boolean = False
     ''' <summary>
-    ''' 判断当前系统语言是否为 zh-CN。
+    ''' 获取区域限制状态，用于判断是否允许使用部分区域限制功能。
     ''' </summary>
-    Public Function IsSystemLanguageChinese() As Boolean
-        Return CultureInfo.CurrentCulture.Name = "zh-CN" OrElse CultureInfo.CurrentUICulture.Name = "zh-CN"
-    End Function
+    Public Sub GetCoR()
+        If TimeZoneInfo.Local.Id = "China Standard Time" AndAlso
+            (CultureInfo.CurrentCulture.Name = "zh-CN" OrElse CultureInfo.CurrentUICulture.Name = "zh-CN") Then IsRestrictedFeatAllowed = True
+    End Sub
 
     Private Uuid As Integer = 1
     Private UuidLock As Object
@@ -2963,7 +2986,7 @@ Retry:
             End Select
         End If
 
-        'If Double.IsNaN(newValue) OrElse Double.IsInfinity(newValue) Then Exit Sub '安全性检查
+        'If Double.IsNaN(newValue) OrElse Double.IsInfinity(newValue) Then Return '安全性检查
         'Select Case control.VerticalAlignment
         '  Case VerticalAlignment.Top, VerticalAlignment.Stretch, VerticalAlignment.Center
         '      control.Margin = New Thickness(control.Margin.Left, newValue, control.Margin.Right, control.Margin.Bottom)
@@ -3147,67 +3170,12 @@ Retry:
         ''' </summary>
         Feedback = 5
         ''' <summary>
-        ''' 弹窗，结束程序。
+        ''' 弹出 Windows 原生弹窗，要求反馈。在无法保证 WPF 窗口能正常运行时使用此级别。
+        ''' 在第二次触发后会直接结束程序。
         ''' </summary>
-        Assert = 6
+        Critical = 6
     End Enum
-    Private LogList As New StringBuilder
-    Private LogWritter As StreamWriter
-    Public Sub LogStart()
-        RunInNewThread(
-        Sub()
-            Dim IsInitSuccess As Boolean = True
-            Try
-                For i = 4 To 1 Step -1
-                    If File.Exists(Path & "PCL\Log-CE" & i & ".log") Then
-                        If File.Exists(Path & "PCL\Log-CE" & (i + 1) & ".log") Then File.Delete(Path & "PCL\Log-CE" & (i + 1) & ".log")
-                        CopyFile(Path & "PCL\Log-CE" & i & ".log", Path & "PCL\Log-CE" & (i + 1) & ".log")
-                    End If
-                Next
-                File.Create(Path & "PCL\Log-CE1.log").Dispose()
-            Catch ex As IOException
-                IsInitSuccess = False
-                Hint("可能同时开启了多个 PCL，程序可能会出现未知问题！", HintType.Critical)
-                Log(ex, "日志初始化失败（疑似文件占用问题）")
-            Catch ex As Exception
-                IsInitSuccess = False
-                Log(ex, "日志初始化失败", LogLevel.Hint)
-            End Try
-            Try
-                LogWritter = New StreamWriter(Path & "PCL\Log-CE1.log", True) With {.AutoFlush = True}
-            Catch ex As Exception
-                LogWritter = Nothing
-                Log(ex, "日志写入失败", LogLevel.Hint)
-            End Try
-            While True
-                If IsInitSuccess Then
-                    LogFlush()
-                Else
-                    LogList = New StringBuilder '清空 LogList 避免内存爆炸
-                End If
-                Thread.Sleep(50)
-            End While
-        End Sub, "Log Writer", ThreadPriority.Lowest)
-    End Sub
-    Private ReadOnly LogFlushLock As New Object '防止外部调用 LogFlush 时同时输出多次日志
-    Public Sub LogFlush()
-        On Error Resume Next
-        If LogWritter Is Nothing Then Exit Sub
-        Dim Log As String = Nothing
-        SyncLock LogFlushLock
-            If LogList.Length > 0 Then
-                Dim LogListCache As StringBuilder
-                LogListCache = LogList
-                LogList = New StringBuilder
-                Log = LogListCache.ToString
-            End If
-        End SyncLock
-        If Log IsNot Nothing Then
-            LogWritter.Write(Log)
-        End If
-    End Sub
-
-    Private ReadOnly LogListLock As New Object '防止日志乱码，只在调试模式下启用
+    Private IsCriticalErrorTriggered As Boolean = False
     ''' <summary>
     ''' 输出 Log。
     ''' </summary>
@@ -3218,25 +3186,16 @@ Retry:
         '处理错误会导致再次调用 Log() 导致无限循环
 
         '输出日志
-        Dim AppendText As String = "[" & GetTimeNow() & "] " & Text & vbCrLf '减轻同步锁占用
-        If ModeDebug Then
-            SyncLock LogListLock
-                LogList.Append(AppendText)
-            End SyncLock
-        Else
-            LogList.Append(AppendText)
-        End If
-#If DEBUG Then
-        Console.Write(AppendText)
-#End If
-        If IsProgramEnded OrElse Level = LogLevel.Normal Then Exit Sub
+        LogWrapper.Info(Text)
+
+        If IsProgramEnded OrElse Level = LogLevel.Normal Then Return
 
         '去除前缀
         Text = Text.RegexReplace("\[[^\]]+?\] ", "")
 
         '输出提示
         Select Case Level
-#If DEBUG Then
+#If DEBUGRESERVED Then
             Case LogLevel.Developer
                 Hint("[开发者模式] " & Text, HintType.Info, False)
             Case LogLevel.Debug
@@ -3256,19 +3215,16 @@ Retry:
                 Else
                     MyMsgBox(Text & vbCrLf & vbCrLf & "将 PCL 更新至最新版或许可以解决这个问题……", Title, IsWarn:=True)
                 End If
-            Case LogLevel.Assert
-                Dim Time As Long = GetTimeTick()
+            Case LogLevel.Critical
+                If IsCriticalErrorTriggered Then
+                    FormMain.EndProgramForce(ProcessReturnValues.Exception)
+                    Return
+                End If
+                IsCriticalErrorTriggered = True
                 If CanFeedback(False) Then
                     If MsgBox(Text & vbCrLf & vbCrLf & "是否反馈此问题？如果不反馈，这个问题可能永远无法得到解决！", MsgBoxStyle.Critical + MsgBoxStyle.YesNo, Title) = MsgBoxResult.Yes Then Feedback(False, True)
                 Else
                     MsgBox(Text & vbCrLf & vbCrLf & "将 PCL 更新至最新版或许可以解决这个问题……", MsgBoxStyle.Critical, Title)
-                End If
-                If GetTimeTick() - Time < 1500 Then
-                    '弹窗无法保留
-                    Log("[System] PCL 已崩溃：" & vbCrLf & Text)
-                    FormMain.EndProgramForce(ProcessReturnValues.Exception)
-                Else
-                    FormMain.EndProgramForce(ProcessReturnValues.Fail)
                 End If
         End Select
 
@@ -3279,29 +3235,22 @@ Retry:
     ''' <param name="Desc">错误描述。会在处理时在末尾加入冒号。</param>
     Public Sub Log(Ex As Exception, Desc As String, Optional Level As LogLevel = LogLevel.Debug, Optional Title As String = "出现错误")
         On Error Resume Next
-        If TypeOf Ex Is ThreadInterruptedException Then Exit Sub
+        If TypeOf Ex Is ThreadInterruptedException Then Return
 
         '获取错误信息
         Dim ExFull As String = Desc & "：" & GetExceptionDetail(Ex)
 
         '输出日志
-        Dim AppendText As String = "[" & GetTimeNow() & "] " & Desc & "：" & GetExceptionDetail(Ex, True) & vbCrLf '减轻同步锁占用
-        If ModeDebug Then
-            SyncLock LogListLock
-                LogList.Append(AppendText)
-            End SyncLock
-        Else
-            LogList.Append(AppendText)
-        End If
-#If DEBUG Then
-        Console.Write(AppendText)
-#End If
-        If IsProgramEnded Then Exit Sub
+        LogWrapper.Error(Ex, Desc)
+
+        If IsProgramEnded Then Return
+
+        If Ex.GetType() = GetType(ComponentModel.Win32Exception) Then ExFull += vbCrLf & "与系统底层交互失败，请尝试重新安装 .NET Framework 4.8.1 解决此问题"
 
         '输出提示
         Select Case Level
             Case LogLevel.Normal
-#If DEBUG Then
+#If DEBUGRESERVED Then
             Case LogLevel.Developer
                 Dim ExLine As String = Desc & "：" & GetExceptionSummary(Ex)
                 Hint("[开发者模式] " & ExLine, HintType.Info, False)
@@ -3325,19 +3274,16 @@ Retry:
                 Else
                     MyMsgBox(ExFull & vbCrLf & vbCrLf & "将 PCL 更新至最新版或许可以解决这个问题……", Title, IsWarn:=True)
                 End If
-            Case LogLevel.Assert
-                Dim Time As Long = GetTimeTick()
+            Case LogLevel.Critical
+                If IsCriticalErrorTriggered Then
+                    FormMain.EndProgramForce(ProcessReturnValues.Exception)
+                    Return
+                End If
+                IsCriticalErrorTriggered = True
                 If CanFeedback(False) Then
                     If MsgBox(ExFull & vbCrLf & vbCrLf & "是否反馈此问题？如果不反馈，这个问题可能永远无法得到解决！", MsgBoxStyle.Critical + MsgBoxStyle.YesNo, Title) = MsgBoxResult.Yes Then Feedback(False, True)
                 Else
                     MsgBox(ExFull & vbCrLf & vbCrLf & "将 PCL 更新至最新版或许可以解决这个问题……", MsgBoxStyle.Critical, Title)
-                End If
-                If GetTimeTick() - Time < 1500 Then
-                    '弹窗无法保留
-                    Log("[System] PCL 已崩溃：" & vbCrLf & ExFull)
-                    FormMain.EndProgramForce(ProcessReturnValues.Exception)
-                Else
-                    FormMain.EndProgramForce(ProcessReturnValues.Fail)
                 End If
         End Select
 
@@ -3348,18 +3294,24 @@ Retry:
         Return System.Text.Encoding.UTF8.GetString(decodedBytes)
 
     End Function
+    Public Function Base64Encode(Text As String) As String
+        Dim bytes As Byte() = System.Text.Encoding.UTF8.GetBytes(Text)
+        Return Convert.ToBase64String(bytes)
+    End Function
+    Public Function Base64Encode(bytes As Byte()) As String
+        Return Convert.ToBase64String(bytes)
+    End Function
     '反馈
     Public Sub Feedback(Optional ShowMsgbox As Boolean = True, Optional ForceOpenLog As Boolean = False)
         On Error Resume Next
         FeedbackInfo()
         If ForceOpenLog OrElse (ShowMsgbox AndAlso MyMsgBox("若你在汇报一个 Bug，请点击 打开文件夹 按钮，并上传 Log-CE(1~5).txt 中包含错误信息的文件。" & vbCrLf & "游戏崩溃一般与启动器无关，请不要因为游戏崩溃而提交反馈。", "反馈提交提醒", "打开文件夹", "不需要") = 1) Then
-            OpenExplorer(Path & "PCL\Log-CE1.txt")
+            OpenExplorer(Path & "PCL\Log-CE1.log")
         End If
         OpenWebsite("https://github.com/PCL-Community/PCL2-CE/issues/")
     End Sub
     Public Function CanFeedback(ShowHint As Boolean) As Boolean
-        Dim LatestVersion = GetChannelInfo()
-        If LatestVersion.version.code > VersionCode Then
+        If Not IsVerisonLatest() Then
             If ShowHint Then
                 If MyMsgBox($"你的 PCL 不是最新版，因此无法提交反馈。{vbCrLf}请在更新后，确认该问题在最新版中依然存在，然后再提交反馈。", "无法提交反馈", "更新", "取消") = 1 Then
                     UpdateCheckByButton()

@@ -14,6 +14,7 @@
     </TargetFrameworkProfile>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
+    <StartupObject>PCL.Program</StartupObject>
     <PublishUrl>publish\</PublishUrl>
     <Install>true</Install>
     <InstallFrom>Disk</InstallFrom>
@@ -34,7 +35,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
-    <DefineDebug>false</DefineDebug>
+    <DefineDebug>true</DefineDebug>
     <DefineTrace>false</DefineTrace>
     <IncrementalBuild>true</IncrementalBuild>
     <OutputPath>.\bin\</OutputPath>
@@ -98,18 +99,20 @@
   <PropertyGroup>
     <SignManifests>false</SignManifests>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Snapshot|AnyCPU' ">
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'DebugCI|AnyCPU' ">
     <OutputPath>.\bin\</OutputPath>
     <DocumentationFile>Plain Craft Launcher 2.xml</DocumentationFile>
-    <Optimize>true</Optimize>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
     <WarningLevel>1</WarningLevel>
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036,42314</NoWarn>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <CodeAnalysisRuleSet>BasicDesignGuidelineRules.ruleset</CodeAnalysisRuleSet>
-    <DefineConstants>SNAPSHOT</DefineConstants>
+    <DefineConstants>DEBUGCI</DefineConstants>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'BETA|AnyCPU' ">
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Beta|AnyCPU' ">
     <OutputPath>.\bin\</OutputPath>
     <DocumentationFile>Plain Craft Launcher 2.xml</DocumentationFile>
     <Optimize>true</Optimize>
@@ -147,6 +150,7 @@
     <DebugType>full</DebugType>
     <PlatformTarget>ARM64</PlatformTarget>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <DefineDebug>true</DefineDebug>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|ARM64'">
     <OutputPath>bin\ARM64\Release\</OutputPath>
@@ -158,17 +162,19 @@
     <PlatformTarget>ARM64</PlatformTarget>
     <CodeAnalysisRuleSet>BasicDesignGuidelineRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Snapshot|ARM64'">
-    <OutputPath>bin\ARM64\Snapshot\</OutputPath>
-    <DefineConstants>SNAPSHOT</DefineConstants>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'DebugCI|ARM64' ">
+    <OutputPath>bin\ARM64\DebugCI\</OutputPath>
+    <DefineConstants>DEBUGCI</DefineConstants>
     <DocumentationFile>Plain Craft Launcher 2.xml</DocumentationFile>
-    <Optimize>true</Optimize>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
     <WarningLevel>1</WarningLevel>
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036,42314</NoWarn>
     <PlatformTarget>ARM64</PlatformTarget>
     <CodeAnalysisRuleSet>BasicDesignGuidelineRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'BETA|ARM64'">
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Beta|ARM64' ">
     <OutputPath>bin\ARM64\BETA\</OutputPath>
     <DefineConstants>BETA</DefineConstants>
     <DocumentationFile>Plain Craft Launcher 2.xml</DocumentationFile>
@@ -197,6 +203,7 @@
     <DebugType>full</DebugType>
     <PlatformTarget>x64</PlatformTarget>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <DefineDebug>true</DefineDebug>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
     <OutputPath>bin\x64\Release\</OutputPath>
@@ -208,17 +215,19 @@
     <PlatformTarget>x64</PlatformTarget>
     <CodeAnalysisRuleSet>BasicDesignGuidelineRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Snapshot|x64'">
-    <OutputPath>bin\x64\Snapshot\</OutputPath>
-    <DefineConstants>SNAPSHOT</DefineConstants>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'DebugCI|x64' ">
+    <OutputPath>bin\x64\DebugCI\</OutputPath>
+    <DefineConstants>DEBUGCI</DefineConstants>
     <DocumentationFile>Plain Craft Launcher 2.xml</DocumentationFile>
-    <Optimize>true</Optimize>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
     <WarningLevel>1</WarningLevel>
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036,42314</NoWarn>
     <PlatformTarget>x64</PlatformTarget>
     <CodeAnalysisRuleSet>BasicDesignGuidelineRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'BETA|x64'">
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Beta|x64' ">
     <OutputPath>bin\x64\BETA\</OutputPath>
     <DefineConstants>BETA</DefineConstants>
     <DocumentationFile>Plain Craft Launcher 2.xml</DocumentationFile>
@@ -280,11 +289,27 @@
     <Compile Include="Controls\MyIconTextButton.xaml.vb">
       <DependentUpon>MyIconTextButton.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Modules\Base\ModNativeInterop.vb" />
     <Compile Include="Modules\Minecraft\ModComp.vb" />
     <Compile Include="Modules\Minecraft\ModJava.vb" />
     <Compile Include="Modules\Minecraft\ModLocalComp.vb" />
     <Compile Include="Modules\Minecraft\ModModpack.vb" />
     <Compile Include="Modules\Minecraft\ModProfile.vb" />
+    <Compile Include="Modules\Minecraft\ModStyle.vb" />
+    <Compile Include="Modules\Updates\AnnouncementDataModel.vb" />
+    <Compile Include="Modules\Updates\EnumUpdateChannel.vb" />
+    <Compile Include="Modules\Updates\IUpdateSource.vb" />
+    <Compile Include="Modules\Updates\UpdateInfoModel.vb" />
+    <Compile Include="Modules\Updates\UpdatesRandomModel.vb" />
+    <Compile Include="Modules\Updates\UpdatesMinioModel.vb" />
+    <Compile Include="Modules\Updates\UpdatesMirrorChyanModel.vb" />
+    <Compile Include="Modules\Updates\VersionDataModel.vb" />
+    <Compile Include="Pages\PageLaunch\PageLoginOffline.xaml.vb">
+      <DependentUpon>PageLoginOffline.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Pages\PageSetup\PageSetupJava.xaml.vb">
+      <DependentUpon>PageSetupJava.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Pages\PageVersion\MyLocalModItem.xaml.vb">
       <DependentUpon>MyLocalModItem.xaml</DependentUpon>
     </Compile>
@@ -319,9 +344,6 @@
     <Compile Include="Modules\ModDevelop.vb" />
     <Compile Include="Modules\Minecraft\ModWatcher.vb" />
     <Compile Include="Modules\ModSecret.vb" />
-    <Compile Include="Modules\Reference\CookieWebClient.vb">
-      <SubType>Component</SubType>
-    </Compile>
     <Compile Include="Pages\PageDownload\Comp\PageComp.xaml.vb">
       <DependentUpon>PageComp.xaml</DependentUpon>
     </Compile>
@@ -440,7 +462,7 @@
     <Compile Include="Pages\PageVersion\PageVersionSetup.xaml.vb">
       <DependentUpon>PageVersionSetup.xaml</DependentUpon>
     </Compile>
-    <Compile Include="Modules\Reference\SystemDropShadowChrome.vb" />
+    <Compile Include="Controls\MyDropShadow.vb" />
     <Compile Include="Modules\Base\ModLoader.vb" />
     <Compile Include="Modules\Base\ModNet.vb" />
     <Compile Include="Modules\Base\ModValidate.vb" />
@@ -511,6 +533,7 @@
     <Compile Include="Pages\PageSpeedRight.xaml.vb">
       <DependentUpon>PageSpeedRight.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Program.vb" />
     <Page Include="Controls\MyExtraTextButton.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -676,6 +699,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Pages\PageLaunch\PageLoginOffline.xaml" />
     <Page Include="Pages\PageLaunch\PageLoginProfileSkin.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -733,6 +757,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="Pages\PageSetup\PageSetupJava.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Pages\PageVersion\MyLocalModItem.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -754,14 +782,6 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Pages\PageVersion\PageVersionExport.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Resources\Language\en_US.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Resources\Language\zh_CN.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
@@ -932,7 +952,7 @@
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.8.1">
       <Visible>False</Visible>
-      <ProductName>Microsoft .NET Framework 4.8.1 %28x86 和 x64%29</ProductName>
+      <ProductName>Microsoft .NET Framework 4.8.1 %28x86 and x64%29</ProductName>
       <Install>true</Install>
     </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
@@ -1035,6 +1055,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\Help.zip" />
+    <None Include="Resources\ModData.dbcp" />
+    <None Include="Resources\msalruntime.zip" />
     <None Include="Resources\transformer.jar" />
   </ItemGroup>
   <ItemGroup>
@@ -1065,9 +1087,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\java-wrapper.jar" />
-  </ItemGroup>
-  <ItemGroup>
-    <Resource Include="Resources\ModData.txt" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Images\Skins\Ari.png" />
@@ -1114,17 +1133,20 @@
     <PackageReference Include="Imazen.WebP">
       <Version>10.0.1</Version>
     </PackageReference>
+    <PackageReference Include="LiteDB">
+      <Version>5.0.21</Version>
+    </PackageReference>
     <PackageReference Include="Microsoft.Identity.Client">
-      <Version>4.71.1</Version>
+      <Version>4.72.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Identity.Client.Broker">
-      <Version>4.71.1</Version>
+      <Version>4.72.1</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Windows.SDK.Contracts">
       <Version>10.0.19041.2</Version>
     </PackageReference>
     <PackageReference Include="IPNetwork2">
-      <Version>3.1.764</Version>
+      <Version>2.6.618</Version>
     </PackageReference>
     <PackageReference Include="Makaretu.Nat">
       <Version>0.2.0</Version>
@@ -1146,6 +1168,9 @@
     </PackageReference>
     <PackageReference Include="STUN">
       <Version>0.5.0</Version>
+    </PackageReference>
+    <PackageReference Include="System.Memory">
+      <Version>4.6.3</Version>
     </PackageReference>
     <PackageReference Include="System.Security.AccessControl">
       <Version>6.0.1</Version>
@@ -1173,7 +1198,14 @@
     <Resource Include="Images\Heads\CreeperIsASpy.png" />
   </ItemGroup>
   <ItemGroup>
+    <Resource Include="Images\Themes\server_bg.png" />
     <Content Include="Resources\linkd.exe" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PCL.Core\PCL.Core.csproj">
+      <Project>{a0c2209d-64fb-4c11-9459-8e86304b6f94}</Project>
+      <Name>PCL.Core</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>

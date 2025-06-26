@@ -14,7 +14,7 @@
         End If
 
         '非重复加载部分
-        If IsLoad Then Exit Sub
+        If IsLoad Then Return
         IsLoad = True
 
         AniControlEnabled += 1
@@ -40,8 +40,6 @@
             TextArgumentWindowHeight.Text = Setup.Get("LaunchArgumentWindowHeight")
             CheckArgumentRam.Checked = Setup.Get("LaunchArgumentRam")
             ComboMsAuthType.SelectedIndex = Setup.Get("LoginMsAuthType")
-            CheckArgumentJavaTraversal.Checked = Setup.Get("LaunchArgumentJavaTraversal")
-            RefreshJavaComboBox()
 
             '游戏内存
             CType(FindName("RadioRamType" & Setup.Load("LaunchRamType")), MyRadioBox).Checked = True
@@ -82,7 +80,6 @@
             Setup.Reset("LaunchArgumentWindowHeight")
             Setup.Reset("LaunchArgumentPriority")
             Setup.Reset("LaunchArgumentRam")
-            Setup.Reset("LaunchArgumentJavaTraversal")
             Setup.Reset("LaunchRamType")
             Setup.Reset("LaunchRamCustom")
             Setup.Reset("LaunchAdvanceJvm")
@@ -92,9 +89,8 @@
             Setup.Reset("LaunchAdvanceDisableJLW")
             Setup.Reset("LaunchAdvanceGraphicCard")
             Setup.Reset("LoginMsAuthType")
-            Setup.Reset("LaunchArgumentJavaAll")
+            Setup.Reset("LaunchArgumentJavaUser")
             Setup.Reset("LaunchArgumentJavaSelect")
-            JavaSearchLoader.Start(IsForceRestart:=True)
 
             Log("[Setup] 已初始化启动设置")
             Hint("已初始化启动设置！", HintType.Finish, False)
@@ -118,47 +114,14 @@
     Private Shared Sub ComboChange(sender As MyComboBox, e As Object) Handles ComboArgumentIndieV2.SelectionChanged, ComboArgumentVisibie.SelectionChanged, ComboArgumentWindowType.SelectionChanged, ComboArgumentPriority.SelectionChanged, ComboMsAuthType.SelectionChanged
         If AniControlEnabled = 0 Then Setup.Set(sender.Tag, sender.SelectedIndex)
     End Sub
-    Private Shared Sub CheckBoxChange(sender As MyCheckBox, e As Object) Handles CheckAdvanceRunWait.Change, CheckArgumentRam.Change, CheckArgumentJavaTraversal.Change, CheckAdvanceDisableJLW.Change, CheckAdvanceGraphicCard.Change, CheckAdvanceDisableRW.Change
+    Private Shared Sub CheckBoxChange(sender As MyCheckBox, e As Object) Handles CheckAdvanceRunWait.Change, CheckArgumentRam.Change, CheckAdvanceDisableJLW.Change, CheckAdvanceGraphicCard.Change, CheckAdvanceDisableRW.Change
         If AniControlEnabled = 0 Then Setup.Set(sender.Tag, sender.Checked)
     End Sub
-
-#Region "下载正版皮肤"
-    Private Sub BtnSkinSave_Click(sender As Object, e As EventArgs) Handles BtnSkinSave.Click
-        Dim ID As String = TextSkinID.Text
-        Hint("正在获取皮肤...")
-        RunInNewThread(Sub()
-                           Try
-                               If ID.Count < 3 Then
-                                   Hint("这不是一个有效的 ID...")
-                               Else
-                                   Dim Result As String = McLoginMojangUuid(ID, True)
-                                   Result = McSkinGetAddress(Result, "Mojang")
-                                   Result = McSkinDownload(Result)
-                                   RunInUi(Sub()
-                                               Dim Path As String = SelectSaveFile("保存皮肤", ID & ".png", "皮肤图片文件(*.png)|*.png")
-                                               CopyFile(Result, Path)
-                                               Hint($"玩家 {ID} 的皮肤已保存！", HintType.Finish)
-                                           End Sub)
-                               End If
-                           Catch ex As Exception
-                               If GetExceptionSummary(ex).Contains("429") Then
-                                   Hint("获取皮肤太过频繁，请 5 分钟之后再试！", HintType.Critical)
-                                   Log("获取正版皮肤失败（" & ID & "）：获取皮肤太过频繁，请 5 分钟后再试！")
-                               Else
-                                   Log(ex, "获取正版皮肤失败（" & ID & "）")
-                               End If
-                           End Try
-                       End Sub)
-    End Sub
-    Private Sub BtnSkinCache_Click(sender As Object, e As EventArgs) Handles BtnSkinCache.Click
-        MySkin.RefreshCache(Nothing)
-    End Sub
-#End Region
 
 #Region "游戏内存"
 
     Public Sub RamType(Type As Integer)
-        If SliderRamCustom Is Nothing Then Exit Sub
+        If SliderRamCustom Is Nothing Then Return
         SliderRamCustom.IsEnabled = (Type = 1)
     End Sub
 
@@ -166,7 +129,7 @@
     ''' 刷新 UI 上的 RAM 显示。
     ''' </summary>
     Public Sub RefreshRam(ShowAnim As Boolean)
-        If LabRamGame Is Nothing OrElse LabRamUsed Is Nothing OrElse FrmMain.PageCurrent <> FormMain.PageType.Setup OrElse FrmSetupLeft.PageID <> FormMain.PageSubType.SetupLaunch Then Exit Sub
+        If LabRamGame Is Nothing OrElse LabRamUsed Is Nothing OrElse FrmMain.PageCurrent <> FormMain.PageType.Setup OrElse FrmSetupLeft.PageID <> FormMain.PageSubType.SetupLaunch Then Return
         '获取内存情况
         Dim RamGame As Double = Math.Round(GetRam(McVersionCurrent, False), 5)
         Dim RamTotal As Double = Math.Round(My.Computer.Info.TotalPhysicalMemory / 1024 / 1024 / 1024, 1)
@@ -189,7 +152,8 @@
                           If(RamGame <> RamGameActual, " (可用 " & If(RamGameActual = Math.Floor(RamGameActual), RamGameActual & ".0", RamGameActual) & " GB)", "")
         LabRamUsed.Text = If(RamUsed = Math.Floor(RamUsed), RamUsed & ".0", RamUsed) & " GB"
         LabRamTotal.Text = " / " & If(RamTotal = Math.Floor(RamTotal), RamTotal & ".0", RamTotal) & " GB"
-        LabRamWarn.Visibility = If(RamGame = 1 AndAlso Not JavaIs64Bit() AndAlso Not Is32BitSystem AndAlso JavaList.Any, Visibility.Visible, Visibility.Collapsed)
+        LabRamWarn.Visibility = If(RamGame = 1 AndAlso Not IsGameSet64BitJava() AndAlso Not Is32BitSystem AndAlso Javas.JavaList.Any, Visibility.Visible, Visibility.Collapsed)
+        HintRamTooHigh.Visibility = If(RamGame / RamTotal > 0.75, Visibility.Visible, Visibility.Collapsed)
         If ShowAnim Then
             '宽度动画
             AniStart({
@@ -370,154 +334,16 @@ PreFin:
             End If
         End If
         '若使用 32 位 Java，则限制为 1G
-        If If(Is32BitJava, Not JavaIs64Bit(If(UseVersionJavaSetup, Version, Nothing))) Then RamGive = Math.Min(1, RamGive)
+        If If(Is32BitJava, Not IsGameSet64BitJava(If(UseVersionJavaSetup, Version, Nothing))) Then RamGive = Math.Min(1, RamGive)
         Return RamGive
     End Function
-
-#End Region
-
-#Region "Java 选择"
-
-    '刷新 Java 下拉框显示
-    Public Sub RefreshJavaComboBox()
-        If ComboArgumentJava Is Nothing Then Exit Sub
-        '初始化列表
-        ComboArgumentJava.Items.Clear()
-        ComboArgumentJava.Items.Add(New MyComboBoxItem With {.Content = "自动选择合适的 Java", .Tag = "自动选择"})
-        '更新列表
-        Dim SelectedItem As MyComboBoxItem = Nothing
-        Dim SelectedBySetup As String = Setup.Get("LaunchArgumentJavaSelect")
-        Try
-            For Each Java In JavaList.Clone().OrderByDescending(Function(v) v.VersionCode)
-                Dim ItemGrid As New Grid
-                ItemGrid.Children.Add(New TextBlock With {
-                                      .Text = Java.ToString,
-                                      .VerticalAlignment = VerticalAlignment.Center,
-                                      .HorizontalAlignment = HorizontalAlignment.Left,
-                                      .IsHitTestVisible = False})
-                Dim BtnJavaED = New MyIconButton With {
-                                      .Logo = If(Java.IsEnabled, Logo.IconButtonStop, Logo.IconButtonCheck),
-                                      .LogoScale = 1.2,
-                                      .ToolTip = If(Java.IsEnabled, "禁用"， "启用"),
-                                      .MaxHeight = 20,
-                                      .VerticalAlignment = VerticalAlignment.Center,
-                                      .HorizontalAlignment = HorizontalAlignment.Right}
-                ItemGrid.Children.Add(BtnJavaED)
-                Dim ListItem = New MyComboBoxItem With {.Content = ItemGrid, .ToolTip = Java.PathFolder, .Tag = Java}
-                ToolTipService.SetHorizontalOffset(BtnJavaED, 20)
-                ToolTipService.SetHorizontalOffset(ListItem, 400)
-                ComboArgumentJava.Items.Add(ListItem)
-                AddHandler BtnJavaED.Click, Sub()
-                                                Dim TargetJava = JavaList.Find(Function(j) j.PathFolder = Java.PathFolder)
-                                                If TargetJava Is Nothing Then Exit Sub
-                                                Java.IsEnabled = Not Java.IsEnabled
-                                                TargetJava.IsEnabled = Java.IsEnabled
-                                                BtnJavaED.Logo = If(TargetJava.IsEnabled, Logo.IconButtonStop, Logo.IconButtonCheck)
-                                                BtnJavaED.ToolTip = If(TargetJava.IsEnabled, "禁用", "启用")
-                                                Dim NewJavaList As New JArray
-                                                For Each Item In JavaList
-                                                    NewJavaList.Add(Item.ToJson)
-                                                Next
-                                                Setup.Set("LaunchArgumentJavaAll", NewJavaList.ToString(Newtonsoft.Json.Formatting.None))
-                                            End Sub
-                '判断人为选中
-                If SelectedBySetup = "" Then Continue For
-                If JavaEntry.FromJson(GetJson(SelectedBySetup)).PathFolder = Java.PathFolder Then SelectedItem = ListItem
-            Next
-        Catch ex As Exception
-            Setup.Set("LaunchArgumentJavaSelect", "")
-            Log(ex, "更新设置 Java 下拉框失败", LogLevel.Feedback)
-        End Try
-        '更新选择项
-        If SelectedItem Is Nothing AndAlso JavaList.Any Then SelectedItem = ComboArgumentJava.Items(0) '选中 “自动选择”
-        ComboArgumentJava.SelectedItem = SelectedItem
-        '结束处理
-        If SelectedItem Is Nothing Then
-            ComboArgumentJava.Items.Clear()
-            ComboArgumentJava.Items.Add(New ComboBoxItem With {.Content = "未找到可用的 Java", .IsSelected = True})
-        End If
-        RefreshRam(True)
-    End Sub
-    '阻止在特定情况下展开下拉框
-    Private Sub ComboArgumentJava_DropDownOpened(sender As Object, e As EventArgs) Handles ComboArgumentJava.DropDownOpened
-        If ComboArgumentJava.SelectedItem Is Nothing OrElse ComboArgumentJava.Items(0).Content = "未找到可用的 Java" OrElse ComboArgumentJava.Items(0).Content = "加载中……" Then
-            ComboArgumentJava.IsDropDownOpen = False
-        End If
-    End Sub
-
-    '下拉框选择更改
-    Private Sub JavaSelectionUpdate() Handles ComboArgumentJava.SelectionChanged
-        If AniControlEnabled <> 0 Then Exit Sub
-        'Java 不可用时也不清空，会导致刷新时找不到对象
-        If ComboArgumentJava.SelectedItem Is Nothing OrElse ComboArgumentJava.SelectedItem.Tag Is Nothing Then Exit Sub
-        '设置新的 Java
-        Dim SelectedJava = ComboArgumentJava.SelectedItem.Tag
-        If "自动选择".Equals(SelectedJava) Then
-            '选择 “自动”
-            Setup.Set("LaunchArgumentJavaSelect", "")
-            Log("[Java] 修改 Java 选择设置：自动选择")
-        Else
-            '选择指定项
-            Setup.Set("LaunchArgumentJavaSelect", CType(SelectedJava.ToJson(), JObject).ToString(Newtonsoft.Json.Formatting.None))
-            Log("[Java] 修改 Java 选择设置：" & SelectedJava.ToString)
-        End If
-        RefreshRam(True)
-    End Sub
-
-    '手动选择
-    Private Sub BtnArgumentJavaSelect_Click(sender As Object, e As EventArgs) Handles BtnArgumentJavaSelect.Click
-        If JavaSearchLoader.State = LoadState.Loading Then
-            Hint("正在搜索 Java，请稍候！", HintType.Critical)
-            Exit Sub
-        End If
-        '选择 Java
-        Dim JavaSelected As String = SelectFile("javaw.exe|javaw.exe", "选择 bin 文件夹中的 javaw.exe 文件")
-        If JavaSelected = "" Then Exit Sub
-        JavaSelected = GetPathFromFullPath(JavaSelected)
-        Try
-            '验证 Java 可用
-            Dim NewEntry As New JavaEntry(JavaSelected, True)
-            NewEntry.Check()
-            '加入列表
-            Dim JavaNewList As New JArray From {NewEntry.ToJson}
-            For Each JsonEntry In GetJson(Setup.Get("LaunchArgumentJavaAll"))
-                Dim Entry = JavaEntry.FromJson(JsonEntry)
-                If Entry.PathFolder = NewEntry.PathFolder Then Continue For
-                JavaNewList.Add(JsonEntry)
-            Next
-            Setup.Set("LaunchArgumentJavaAll", JavaNewList.ToString(Newtonsoft.Json.Formatting.None))
-            '重新加载列表
-            JavaSearchLoader.Start(IsForceRestart:=True)
-            Hint("已将该 Java 加入 Java 列表！", HintType.Finish)
-        Catch ex As Exception
-            Log(ex, "该 Java 存在异常，无法使用", LogLevel.Msgbox, "异常的 Java")
-            Exit Sub
-        End Try
-    End Sub
-    '自动查找
-    Private Sub BtnArgumentJavaSearch_Click(sender As Object, e As EventArgs) Handles BtnArgumentJavaSearch.Click
-        If JavaSearchLoader.State = LoadState.Loading Then
-            Hint("正在搜索 Java，请稍候！", HintType.Critical)
-            Exit Sub
-        End If
-        RunInThread(
-        Sub()
-            Hint("正在搜索 Java！")
-            JavaSearchLoader.WaitForExit(IsForceRestart:=True)
-            If Not JavaList.Any() Then
-                Hint("未找到可用的 Java！", HintType.Critical)
-            Else
-                Hint("已找到 " & JavaList.Count & " 个 Java，请检查下拉框查看列表！", HintType.Finish)
-            End If
-        End Sub)
-    End Sub
 
 #End Region
 
 #Region "其他选项"
 
     Private Sub WindowTypeUIRefresh() Handles ComboArgumentWindowType.SelectionChanged
-        If ComboArgumentWindowType Is Nothing Then Exit Sub
+        If ComboArgumentWindowType Is Nothing Then Return
         If ComboArgumentWindowType.SelectedIndex = 3 AndAlso LabArgumentWindowMiddle IsNot Nothing AndAlso LabArgumentWindowMiddle.Visibility = Visibility.Collapsed Then
             LabArgumentWindowMiddle.Visibility = Visibility.Visible
             TextArgumentWindowHeight.Visibility = Visibility.Visible
@@ -531,7 +357,7 @@ PreFin:
 
     '可见性选择直接关闭的警告
     Private Sub ComboArgumentVisibie_SizeChanged(sender As Object, e As SelectionChangedEventArgs) Handles ComboArgumentVisibie.SelectionChanged
-        If AniControlEnabled <> 0 Then Exit Sub
+        If AniControlEnabled <> 0 Then Return
         If ComboArgumentVisibie.SelectedIndex = 0 Then
             If MyMsgBox("若在游戏启动后立即关闭启动器，崩溃检测、更改游戏标题等功能将失效。" & vbCrLf &
                         "如果想保留这些功能，可以选择让启动器在游戏启动后隐藏，游戏退出后自动关闭。", "提醒", "继续", "取消") = 2 Then
@@ -542,7 +368,7 @@ PreFin:
 
     '开启自动内存优化的警告
     Private Sub CheckArgumentRam_Change() Handles CheckArgumentRam.Change
-        If AniControlEnabled <> 0 Then Exit Sub
+        If AniControlEnabled <> 0 Then Return
         If Not CheckArgumentRam.Checked Then Return
         If MyMsgBox("内存优化会显著延长启动耗时，建议仅在内存不足时开启。" & vbCrLf &
                     "如果你在使用机械硬盘，这还可能导致一小段时间的严重卡顿。" &
@@ -556,6 +382,11 @@ PreFin:
     Private Sub ComboArgumentIndie_SelectionChanged(sender As Object, e As SelectionChangedEventArgs) Handles ComboArgumentIndieV2.SelectionChanged
         If AniControlEnabled <> 0 Then Exit Sub
         MyMsgBox("默认策略只会对今后新安装的版本生效。" & vbCrLf & "已有版本的隔离策略需要在它的版本设置中调整。")
+    End Sub
+
+    'Java 管理跳转
+    Private Sub BtnJavaManage_Click(sender As Object, e As RouteEventArgs) Handles BtnGotoJavaManage.Click
+        FrmMain.PageChange(New FormMain.PageStackData With {.Page = FormMain.PageType.SetupJava})
     End Sub
 
 #End Region

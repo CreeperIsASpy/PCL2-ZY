@@ -256,6 +256,8 @@ Public Class PageVersionExport
             Yield "!*.log"
             Yield "!*.dat_old"
             Yield "!*.BakaCoreInfo"
+            Yield "!hmclversion.cfg"
+            Yield "!log4j2.xml"
             Yield ""
         End If
     End Function
@@ -407,7 +409,6 @@ Public Class PageVersionExport
         Next
 
         '确认导出位置
-        Dim Extension As String = If(CheckOptionsPcl.Checked, ".zip", ".mrpack")
         Dim PackPath As String = Nothing
         If Not String.IsNullOrWhiteSpace(ConfigPackPath) AndAlso
            (Not ConfigPackPath.EndsWithF("\") AndAlso Not ConfigPackPath.EndsWithF("/")) Then
@@ -421,9 +422,11 @@ Public Class PageVersionExport
             End Try
         End If
         If PackPath Is Nothing Then
+            Dim Extensions As New List(Of String)
+            If Not CheckAdvancedModrinth.Checked Then Extensions.Add("压缩文件(*.zip)|*.zip")
+            If Not CheckOptionsPcl.Checked Then Extensions.Add("Modrinth 整合包文件(*.mrpack)|*.mrpack")
             PackPath = SelectSaveFile("选择导出位置",
-                PackName & If(String.IsNullOrEmpty(TextExportVersion.Text), "", " " & TextExportVersion.Text),
-                $"整合包文件(*{Extension})|*{Extension}")
+                PackName & If(String.IsNullOrEmpty(TextExportVersion.Text), "", " " & TextExportVersion.Text), Extensions.Join("|"))
             Log($"[Export] 手动指定的导出路径：{PackPath}")
         End If
         If String.IsNullOrEmpty(PackPath) Then Return
@@ -446,7 +449,7 @@ Public Class PageVersionExport
 
 #Region "准备 PCL 文件"
 
-#If Not BETA Then
+#If Not RELEASE Then
         If IncludePCL Then
             Loaders.Add(New LoaderTask(Of Integer, Integer)("下载 PCL 正式版",
             Sub(Loader As LoaderTask(Of Integer, Integer))
@@ -527,7 +530,7 @@ Public Class PageVersionExport
             Loader.Progress = 0.97
             '复制 PCL 版本设置
             CopyDirectory(McVersion.Path & "PCL\", OverridesFolder & "PCL\")
-#If BETA Then
+#If RELEASE Then
             '复制 PCL 本体
             If IncludePCL Then CopyFile(PathWithName, CacheFolder & "Plain Craft Launcher.exe")
 #End If
@@ -612,7 +615,7 @@ Public Class PageVersionExport
 
             '等待线程结束
             Do Until EndedThreadCount = 2
-                If Loader.IsAborted Then Exit Sub
+                If Loader.IsAborted Then Return
                 Thread.Sleep(10)
             Loop
 

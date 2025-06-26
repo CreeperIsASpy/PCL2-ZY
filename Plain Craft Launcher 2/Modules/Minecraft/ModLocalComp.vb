@@ -177,6 +177,11 @@ Public Module ModLocalComp
         Private _Authors As String = Nothing
 
         ''' <summary>
+        ''' Mod 图标路径。
+        ''' </summary>
+        Public Property Logo As String
+
+        ''' <summary>
         ''' 依赖项，其中包括了 Minecraft 的版本要求。格式为 ModID - VersionRequirement，若无版本要求则为 Nothing。
         ''' </summary>
         Public ReadOnly Property Dependencies As Dictionary(Of String, String)
@@ -188,9 +193,9 @@ Public Module ModLocalComp
         Private _Dependencies As New Dictionary(Of String, String)
         Private Sub AddDependency(ModID As String, Optional VersionRequirement As String = Nothing)
             '确保信息正确
-            If ModID Is Nothing OrElse ModID.Count < 2 Then Exit Sub
+            If ModID Is Nothing OrElse ModID.Count < 2 Then Return
             ModID = ModID.ToLower
-            If ModID = "name" OrElse Val(ModID).ToString = ModID Then Exit Sub '跳过 name 与纯数字 id
+            If ModID = "name" OrElse Val(ModID).ToString = ModID Then Return '跳过 name 与纯数字 id
             If VersionRequirement Is Nothing OrElse ((Not VersionRequirement.Contains(".")) AndAlso (Not VersionRequirement.Contains("-"))) OrElse VersionRequirement.Contains("$") Then
                 VersionRequirement = Nothing
             Else
@@ -279,7 +284,7 @@ Public Module ModLocalComp
         ''' 进行文件可用性检查与 .class 以外的信息获取。
         ''' </summary>
         Public Sub Load(Optional ForceReload As Boolean = False)
-            If IsLoaded AndAlso Not ForceReload Then Exit Sub
+            If IsLoaded AndAlso Not ForceReload Then Return
             '初始化
             Init()
             Dim Jar As ZipArchive = Nothing
@@ -339,6 +344,18 @@ Public Module ModLocalComp
                     Next
                     If Author.Any Then Authors = Join(Author, ", ")
                 End If
+                Dim LogoFile As String = InfoObject("logoFile")
+                If LogoFile IsNot Nothing Then
+                    Dim LogoItem As ZipArchiveEntry = Jar.GetEntry(LogoFile)
+                    If LogoItem IsNot Nothing Then
+                        Logo = $"{PathTemp}MyImage\{GetStringMD5(LogoItem.Length.ToString & LogoItem.CompressedLength.ToString & Path)}.png"
+                        Using EntryStream As Stream = LogoItem.Open()
+                            Using FileStream As FileStream = File.Create(Logo)
+                                EntryStream.CopyTo(FileStream)
+                            End Using
+                        End Using
+                    End If
+                End If
                 Dim Reqs As JArray = InfoObject("requiredMods")
                 If Reqs IsNot Nothing Then
                     For Each Token As String In Reqs
@@ -395,6 +412,20 @@ GotFabric:
                     Next
                     If Author.Any Then Authors = Join(Author, ", ")
                 End If
+                If FabricObject.ContainsKey("icon") Then
+                    Dim LogoFile As String = FabricObject("icon")
+                    If LogoFile IsNot Nothing Then
+                        Dim LogoItem As ZipArchiveEntry = Jar.GetEntry(LogoFile)
+                        If LogoItem IsNot Nothing Then
+                            Logo = $"{PathTemp}MyImage\{GetStringMD5(LogoItem.Length.ToString & LogoItem.CompressedLength.ToString & Path)}.png"
+                            Using EntryStream As Stream = LogoItem.Open()
+                                Using FileStream As FileStream = File.Create(Logo)
+                                    EntryStream.CopyTo(FileStream)
+                                End Using
+                            End Using
+                        End If
+                    End If
+                End If
                 'If (Not FabricObject.ContainsKey("serverSideOnly")) OrElse FabricObject("serverSideOnly")("value").ToObject(Of Boolean) = False Then
                 '    '添加 Minecraft 依赖
                 '    Dim DepMinecraft As String = If(If(FabricObject("acceptedMinecraftVersions") IsNot Nothing, FabricObject("acceptedMinecraftVersions")("value"), ""), "")
@@ -417,6 +448,45 @@ GotFabric:
                 GoTo Finished
             Catch ex As Exception
                 Log(ex, "读取 fabric.mod.json 时出现未知错误（" & Path & "）", LogLevel.Developer)
+            End Try
+#End Region
+#Region "尝试使用 quilt.mod.json" 'modified from fabric.mod.json
+            Try
+                '获取 quilt.mod.json 文件
+                Dim QuiltEntry As ZipArchiveEntry = Jar.GetEntry("quilt.mod.json")
+                Dim QuiltText As String = Nothing
+                If QuiltEntry IsNot Nothing Then
+                    QuiltText = ReadFile(QuiltEntry.Open(), Encoding.UTF8)
+                    If Not QuiltText.Contains("schema_version") Then QuiltText = Nothing
+                End If
+                If QuiltText Is Nothing Then Exit Try
+                Dim QuiltObject As JObject = GetJson(QuiltText)("quilt_loader")
+                '从文件中获取 Mod 信息项
+                If QuiltObject.ContainsKey("id") Then ModId = QuiltObject("id")
+                If QuiltObject.ContainsKey("version") Then Version = QuiltObject("version")
+                If QuiltObject.ContainsKey("metadata") Then
+                    Dim QuiltMetadata As JObject = QuiltObject("metadata")
+                    If QuiltMetadata.ContainsKey("name") Then Name = QuiltMetadata("name")
+                    If QuiltMetadata.ContainsKey("description") Then Description = QuiltMetadata("description")
+                    If QuiltMetadata.ContainsKey("contact") Then Url = If(QuiltMetadata("contact")("homepage"), "")
+                End If
+                If QuiltObject.ContainsKey("icon") Then
+                    Dim LogoFile As String = QuiltObject("icon")
+                    If LogoFile IsNot Nothing Then
+                        Dim LogoItem As ZipArchiveEntry = Jar.GetEntry(LogoFile)
+                        If LogoItem IsNot Nothing Then
+                            Logo = $"{PathTemp}MyImage\{GetStringMD5(LogoItem.Length.ToString & LogoItem.CompressedLength.ToString & Path)}.png"
+                            Using EntryStream As Stream = LogoItem.Open()
+                                Using FileStream As FileStream = File.Create(Logo)
+                                    EntryStream.CopyTo(FileStream)
+                                End Using
+                            End Using
+                        End If
+                    End If
+                End If
+                GoTo Finished
+            Catch ex As Exception
+                Log(ex, "读取 quilt.mod.json 时出现未知错误（" & Path & "）", LogLevel.Developer)
             End Try
 #End Region
 #Region "尝试使用 mods.toml"
@@ -803,6 +873,15 @@ Finished:
             Return False
         End Function
 
+        ''' <summary>
+        ''' 获取图标路径。
+        ''' </summary>
+        Public Function GetLogo() As String
+            If Comp IsNot Nothing AndAlso Comp.LogoUrl IsNot Nothing Then Return Comp.LogoUrl
+            If Logo IsNot Nothing Then Return Logo
+            Return PathImage & "Icons/NoIcon.png"
+        End Function
+
     End Class
 
     Public Class CompLocalLoaderData
@@ -826,7 +905,7 @@ Finished:
                 Try
                     RunInUiWait(Sub() If Loader.Input.Frm IsNot Nothing Then Loader.Input.Frm.Load.Text = "正在更新资源")
                     Do Until Not PageVersionCompResource.UpdatingVersions.Contains(Loader.Input.CompPath)
-                        If Loader.IsAborted Then Exit Sub
+                        If Loader.IsAborted Then Return
                         Thread.Sleep(100)
                     Loop
                 Finally
@@ -879,7 +958,7 @@ Finished:
             Dim ModUpdateList As New List(Of LocalCompFile)
             For Each ModFile As FileInfo In ModFileList
                 Loader.Progress += 0.94 / ModFileList.Count
-                If Loader.IsAborted Then Exit Sub
+                If Loader.IsAborted Then Return
                 '加载 McMod 对象
                 Dim ModEntry As New LocalCompFile(ModFile.FullName)
                 ModEntry.Load()
@@ -919,7 +998,7 @@ Finished:
                 End Function)
 
             '回设
-            If Loader.IsAborted Then Exit Sub
+            If Loader.IsAborted Then Return
             Loader.Output = ModList
 
             '开始联网加载
@@ -946,7 +1025,7 @@ Finished:
         '开始网络获取
         Log($"[Mod] 目标加载器：{ModLoaders.Join("/")}，版本：{McVersion}")
         Dim EndedThreadCount As Integer = 0, IsFailed As Boolean = False
-        Dim MainThread As Thread = Thread.CurrentThread
+        Dim CurrentThread As Thread = Thread.CurrentThread
         '从 Modrinth 获取信息
         RunInNewThread(
             Sub()
@@ -970,7 +1049,7 @@ Finished:
                         Dim File As New CompFile(ModrinthVersion(Entry.ModrinthHash), CompType.Mod)
                         If Entry.CompFile Is Nothing OrElse Entry.CompFile.ReleaseDate < File.ReleaseDate Then Entry.CompFile = File
                     Next
-                    If Loader.IsAbortedWithThread(MainThread) Then Exit Sub
+                    If Loader.IsAbortedWithThread(CurrentThread) Then Exit Sub
                     Log($"[Mod] 需要从 Modrinth 获取 {ModrinthMapping.Count} 个本地 Mod 的工程信息")
                     '步骤 3：获取工程信息
                     If Not ModrinthMapping.Any() Then Exit Sub
@@ -1020,7 +1099,7 @@ Finished:
                     Dim CurseForgeHashes As New List(Of UInteger)
                     For Each Entry In Mods
                         CurseForgeHashes.Add(Entry.CurseForgeHash)
-                        If Loader.IsAbortedWithThread(MainThread) Then Exit Sub
+                        If Loader.IsAbortedWithThread(CurrentThread) Then Exit Sub
                     Next
                     Dim CurseForgeRaw = CType(CType(GetJson(DlModRequest("https://api.curseforge.com/v1/fingerprints/432", "POST",
                         $"{{""fingerprints"": [{CurseForgeHashes.Join(",")}]}}", "application/json")), JObject)("data")("exactMatches"), JContainer)
@@ -1041,7 +1120,7 @@ Finished:
                             If Entry.CompFile Is Nothing OrElse Entry.CompFile.ReleaseDate < File.ReleaseDate Then Entry.CompFile = File
                         Next
                     Next
-                    If Loader.IsAbortedWithThread(MainThread) Then Exit Sub
+                    If Loader.IsAbortedWithThread(CurrentThread) Then Exit Sub
                     Log($"[Mod] 需要从 CurseForge 获取 {CurseForgeMapping.Count} 个本地 Mod 的工程信息")
                     '步骤 3：获取工程信息
                     If Not CurseForgeMapping.Any() Then Exit Sub
@@ -1121,13 +1200,13 @@ Finished:
             End Sub, "Mod List Detail Loader CurseForge")
         '等待线程结束
         Do Until EndedThreadCount = 2
-            If Loader.IsAborted Then Exit Sub
+            If Loader.IsAborted Then Return
             Thread.Sleep(10)
         Loop
         '保存缓存
         Mods = Mods.Where(Function(m) m.Comp IsNot Nothing).ToList()
         Log($"[Mod] 联网获取本地 Mod 信息完成，为 {Mods.Count} 个 Mod 更新缓存")
-        If Not Mods.Any() Then Exit Sub
+        If Not Mods.Any() Then Return
         For Each Entry In Mods
             Entry.CompLoaded = Not IsFailed
             Cache(Entry.ModrinthHash & McVersion & ModLoaders.Join("")) = Entry.ToJson()
@@ -1161,7 +1240,7 @@ Finished:
         Return "Nothing"
     End Function
 
-#If DEBUG Then
+#If DEBUGRESERVED Then
     ''' <summary>
     ''' 检查 Mod 列表中存在的错误，返回错误信息的集合。
     ''' </summary>

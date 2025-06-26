@@ -1,4 +1,6 @@
-﻿Public Class MyMsgInput
+Imports PCL.Core.Controls
+
+Public Class MyMsgInput
 
     Private ReadOnly MyConverter As MyMsgBoxConverter
     Private ReadOnly Uuid As Integer = GetUuid()
@@ -39,7 +41,7 @@
             TextArea.SelectionStart = TextArea.Text.Length
             '动画
             Opacity = 0
-            AniStart(AaColor(FrmMain.PanMsg, Grid.BackgroundProperty, If(MyConverter.IsWarn, New MyColor(140, 80, 0, 0), New MyColor(90, 0, 0, 0)) - FrmMain.PanMsg.Background, 200), "PanMsg Background")
+            AniStart(AaColor(FrmMain.PanMsgBackground, BlurBorder.BackgroundProperty, If(MyConverter.IsWarn, New MyColor(140, 80, 0, 0), New MyColor(90, 0, 0, 0)) - FrmMain.PanMsgBackground.Background, 200), "PanMsgBackground Background")
             AniStart({
                 AaOpacity(Me, 1, 120, 60),
                 AaDouble(Sub(i) TransformPos.Y += i, -TransformPos.Y, 300, 60, New AniEaseOutBack(AniEasePower.Weak)),
@@ -61,7 +63,7 @@
             AaCode(
             Sub()
                 If Not WaitingMyMsgBox.Any() Then
-                    AniStart(AaColor(FrmMain.PanMsg, Grid.BackgroundProperty, New MyColor(0, 0, 0, 0) - FrmMain.PanMsg.Background, 200, Ease:=New AniEaseOutFluent(AniEasePower.Weak)))
+                    AniStart(AaColor(FrmMain.PanMsgBackground, BlurBorder.BackgroundProperty, New MyColor(0, 0, 0, 0) - FrmMain.PanMsgBackground.Background, 200, Ease:=New AniEaseOutFluent(AniEasePower.Weak)))
                 End If
             End Sub, 30),
             AaOpacity(Me, -Opacity, 80, 20),
@@ -73,13 +75,13 @@
 
     Public Sub Btn1_Click() Handles Btn1.Click
         TextArea.Validate() '#5773
-        If MyConverter.IsExited OrElse Not TextArea.IsValidated Then Exit Sub
+        If MyConverter.IsExited OrElse Not TextArea.IsValidated Then Return
         MyConverter.IsExited = True
         MyConverter.Result = TextArea.Text
         Close()
     End Sub
     Public Sub Btn2_Click() Handles Btn2.Click
-        If MyConverter.IsExited Then Exit Sub
+        If MyConverter.IsExited Then Return
         MyConverter.IsExited = True
         MyConverter.Result = Nothing
         Close()

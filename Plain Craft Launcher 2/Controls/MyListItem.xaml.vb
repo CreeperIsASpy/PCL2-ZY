@@ -247,85 +247,97 @@ Public Class MyListItem
     Public Shared ReadOnly FontSizeProperty As DependencyProperty = DependencyProperty.Register("FontSize", GetType(Double), GetType(MyListItem), New PropertyMetadata(CType(14, Double)))
 
     '信息
-    Private _Info As String = ""
     Public Property Info As String
         Get
-            Return _Info
+            Return GetValue(InfoProperty)
         End Get
         Set(value As String)
-            If _Info = value Then Exit Property
+            If Info = value Then Return
             value = value.Replace(vbCr, "").Replace(vbLf, "")
-            _Info = value
-            LabInfo.Text = value
-            LabInfo.Visibility = If(value = "", Visibility.Collapsed, Visibility.Visible)
+            SetValue(InfoProperty, value)
         End Set
     End Property
+    Public Shared ReadOnly InfoProperty As DependencyProperty = DependencyProperty.Register("Info", GetType(String), GetType(MyListItem), New PropertyMetadata("", AddressOf OnInfoChanged))
+    Private Shared Sub OnInfoChanged(d As DependencyObject, e As DependencyPropertyChangedEventArgs)
+        Dim control = CType(d, MyListItem)
+        Dim value = CStr(e.NewValue)
+        control.LabInfo.Text = value
+        control.LabInfo.Visibility = If(value = "", Visibility.Collapsed, Visibility.Visible)
+    End Sub
 
     '图片
-    Private _Logo As String = ""
     Public Property Logo As String
         Get
-            Return _Logo
+            Return GetValue(LogoProperty)
         End Get
         Set(value As String)
-            If _Logo = value Then Exit Property
-            _Logo = value
-            '删除旧 Logo
-            If Not IsNothing(PathLogo) Then Children.Remove(PathLogo)
-            '添加新 Logo
-            If Not _Logo = "" Then
-                If _Logo.StartsWithF("http", True) Then
-                    '网络图片
-                    PathLogo = New MyImage With {
-                            .Tag = Me,
-                            .IsHitTestVisible = LogoClickable,
-                            .Source = _Logo,
-                            .RenderTransformOrigin = New Point(0.5, 0.5),
-                            .RenderTransform = New ScaleTransform With {.ScaleX = LogoScale, .ScaleY = LogoScale},
-                            .SnapsToDevicePixels = True, .UseLayoutRounding = False}
-                    RenderOptions.SetBitmapScalingMode(PathLogo, BitmapScalingMode.Linear)
-                ElseIf _Logo.EndsWithF(".png", True) OrElse _Logo.EndsWithF(".jpg", True) OrElse _Logo.EndsWithF(".webp", True) Then
-                    '位图
-                    PathLogo = New Canvas With {
-                            .Tag = Me,
-                            .IsHitTestVisible = LogoClickable,
-                            .Background = New MyBitmap(_Logo),
-                            .RenderTransformOrigin = New Point(0.5, 0.5),
-                            .RenderTransform = New ScaleTransform With {.ScaleX = LogoScale, .ScaleY = LogoScale},
-                            .SnapsToDevicePixels = True, .UseLayoutRounding = False,
-                            .HorizontalAlignment = HorizontalAlignment.Stretch, .VerticalAlignment = VerticalAlignment.Stretch
-                    }
-                    If _Logo.Contains(PathTemp & $"Cache\Skin\Head") Then
-                        RenderOptions.SetBitmapScalingMode(PathLogo, BitmapScalingMode.NearestNeighbor)
-                    Else
-                        RenderOptions.SetBitmapScalingMode(PathLogo, BitmapScalingMode.Linear)
-                    End If
-                Else
-                    '矢量图
-                    PathLogo = New Shapes.Path With {
-                        .Tag = Me,
-                        .IsHitTestVisible = LogoClickable, .HorizontalAlignment = HorizontalAlignment.Center, .VerticalAlignment = VerticalAlignment.Center, .Stretch = Stretch.Uniform,
-                        .Data = (New GeometryConverter).ConvertFromString(_Logo),
-                        .RenderTransformOrigin = New Point(0.5, 0.5),
-                        .RenderTransform = New ScaleTransform With {.ScaleX = LogoScale, .ScaleY = LogoScale},
-                        .SnapsToDevicePixels = False, .UseLayoutRounding = False}
-                    PathLogo.SetBinding(Shapes.Path.FillProperty, New Binding("Foreground") With {.Source = Me})
-                End If
-                SetColumn(PathLogo, 2)
-                SetRowSpan(PathLogo, 4)
-                OnSizeChanged() '设置边距
-                Children.Add(PathLogo)
-                '图标的点击事件
-                If LogoClickable Then
-                    AddHandler PathLogo.MouseLeave, Sub(sender, e) IsLogoDown = False
-                    AddHandler PathLogo.MouseLeftButtonDown, Sub(sender, e) IsLogoDown = True
-                    AddHandler PathLogo.MouseLeftButtonUp, Sub(sender, e) If IsLogoDown Then IsLogoDown = False : RaiseEvent LogoClick(sender.Tag, e)
-                End If
-            End If
-            '改变行距
-            ColumnLogo.Width = New GridLength(If(_Logo = "", 0, 34) + If(Height < 40, 0, 4))
+            If Logo = value Then Return
+            SetValue(LogoProperty, value)
         End Set
     End Property
+    Public Shared ReadOnly LogoProperty As DependencyProperty = DependencyProperty.Register("Logo", GetType(String), GetType(MyListItem), New PropertyMetadata("", AddressOf OnLogoChanged))
+    Private Shared Sub OnLogoChanged(d As DependencyObject, e As DependencyPropertyChangedEventArgs)
+        Dim control = CType(d, MyListItem)
+        Dim value = CStr(e.NewValue)
+        control.UpdateLogo(value)
+    End Sub
+    Private Sub UpdateLogo(_Logo As String)
+        '删除旧 Logo
+        If Not IsNothing(PathLogo) Then Children.Remove(PathLogo)
+        '添加新 Logo
+        If Not _Logo = "" Then
+            If _Logo.StartsWithF("http", True) Then
+                '网络图片
+                PathLogo = New MyImage With {
+                        .Tag = Me,
+                        .IsHitTestVisible = LogoClickable,
+                        .Source = _Logo,
+                        .RenderTransformOrigin = New Point(0.5, 0.5),
+                        .RenderTransform = New ScaleTransform With {.ScaleX = LogoScale, .ScaleY = LogoScale},
+                        .SnapsToDevicePixels = True, .UseLayoutRounding = False}
+                RenderOptions.SetBitmapScalingMode(PathLogo, BitmapScalingMode.Linear)
+            ElseIf _Logo.EndsWithF(".png", True) OrElse _Logo.EndsWithF(".jpg", True) OrElse _Logo.EndsWithF(".webp", True) Then
+                '位图
+                PathLogo = New Canvas With {
+                        .Tag = Me,
+                        .IsHitTestVisible = LogoClickable,
+                        .Background = New MyBitmap(_Logo),
+                        .RenderTransformOrigin = New Point(0.5, 0.5),
+                        .RenderTransform = New ScaleTransform With {.ScaleX = LogoScale, .ScaleY = LogoScale},
+                        .SnapsToDevicePixels = True, .UseLayoutRounding = False,
+                        .HorizontalAlignment = HorizontalAlignment.Stretch, .VerticalAlignment = VerticalAlignment.Stretch
+                }
+                If _Logo.Contains(PathTemp & $"Cache\Skin\Head") Then
+                    RenderOptions.SetBitmapScalingMode(PathLogo, BitmapScalingMode.NearestNeighbor)
+                Else
+                    RenderOptions.SetBitmapScalingMode(PathLogo, BitmapScalingMode.Linear)
+                End If
+            Else
+                '矢量图
+                PathLogo = New Shapes.Path With {
+                    .Tag = Me,
+                    .IsHitTestVisible = LogoClickable, .HorizontalAlignment = HorizontalAlignment.Center, .VerticalAlignment = VerticalAlignment.Center, .Stretch = Stretch.Uniform,
+                    .Data = (New GeometryConverter).ConvertFromString(_Logo),
+                    .RenderTransformOrigin = New Point(0.5, 0.5),
+                    .RenderTransform = New ScaleTransform With {.ScaleX = LogoScale, .ScaleY = LogoScale},
+                    .SnapsToDevicePixels = False, .UseLayoutRounding = False}
+                PathLogo.SetBinding(Shapes.Path.FillProperty, New Binding("Foreground") With {.Source = Me})
+            End If
+            SetColumn(PathLogo, 2)
+            SetRowSpan(PathLogo, 4)
+            OnSizeChanged() '设置边距
+            Children.Add(PathLogo)
+            '图标的点击事件
+            If LogoClickable Then
+                AddHandler PathLogo.MouseLeave, Sub(sender, e) IsLogoDown = False
+                AddHandler PathLogo.MouseLeftButtonDown, Sub(sender, e) IsLogoDown = True
+                AddHandler PathLogo.MouseLeftButtonUp, Sub(sender, e) If IsLogoDown Then IsLogoDown = False : RaiseEvent LogoClick(sender.Tag, e)
+            End If
+        End If
+        '改变行距
+        ColumnLogo.Width = New GridLength(If(_Logo = "", 0, 34) + If(Height < 40, 0, 4))
+    End Sub
+
     Private _LogoScale As Double = 1
     Public Property LogoScale() As Double
         Get
@@ -357,7 +369,7 @@ Public Class MyListItem
             Return _Type
         End Get
         Set(value As CheckType)
-            If _Type = value Then Exit Property
+            If _Type = value Then Return
             _Type = value
             '切换左栏大小
             ColumnCheck.Width = New GridLength(If(_Type = CheckType.None OrElse _Type = CheckType.Clickable, If(Height < 40, 4, 2), 6))
@@ -386,6 +398,7 @@ Public Class MyListItem
 
     '适应尺寸
     Private Sub OnSizeChanged() Handles Me.SizeChanged
+        Dim _Logo = Logo
         ColumnCheck.Width = New GridLength(If(_Type = CheckType.None OrElse _Type = CheckType.Clickable, If(Height < 40, 4, 2), 6))
         ColumnLogo.Width = New GridLength(If(_Logo = "", 0, 34) + If(Height < 40, 0, 4))
         If PathLogo IsNot Nothing Then
@@ -427,31 +440,31 @@ Public Class MyListItem
                     RaiseEvent Changed(Me, ChangedEventArgs)
                     If ChangedEventArgs.Handled Then
                         _Checked = RawValue
-                        Exit Sub
+                        Return
                     End If
                 End If
                 _Checked = value
             Else
-                If value = _Checked Then Exit Sub
+                If value = _Checked Then Return
                 _Checked = value
                 If IsInitialized Then
                     RaiseEvent Changed(Me, ChangedEventArgs)
                     If ChangedEventArgs.Handled Then
                         _Checked = RawValue
-                        Exit Sub
+                        Return
                     End If
                 End If
             End If
             If value Then
                 Dim CheckEventArgs As New RouteEventArgs(user)
                 RaiseEvent Check(Me, CheckEventArgs)
-                If CheckEventArgs.Handled Then Exit Sub
+                If CheckEventArgs.Handled Then Return
             End If
 
             '保证只有一个单选 ListItem 选中
 
             If Type = CheckType.RadioBox Then
-                If IsNothing(Parent) Then Exit Sub
+                If IsNothing(Parent) Then Return
                 Dim RadioboxList As New List(Of MyListItem)
                 Dim CheckedCount As Integer = 0
                 '收集控件列表与选中个数
@@ -551,10 +564,10 @@ Public Class MyListItem
             SetValue(ForegroundProperty, value)
         End Set
     End Property
-    Public Shared ReadOnly ForegroundProperty As DependencyProperty = DependencyProperty.Register("Foreground", GetType(Brush), GetType(MyListItem), New PropertyMetadata(CType(Color1, SolidColorBrush)))
+    Public Shared ReadOnly ForegroundProperty As DependencyProperty = DependencyProperty.Register("Foreground", GetType(Brush), GetType(MyListItem), New PropertyMetadata(DynamicColors.Color1Brush))
 
     '菜单与按钮绑定
-    Public ContentHandler As Action(Of MyListItem, EventArgs)
+    Public Property ContentHandler As Action(Of MyListItem, EventArgs)
 
 #End Region
 
@@ -562,15 +575,15 @@ Public Class MyListItem
 
     '触发点击事件
     Private Sub Button_MouseUp(sender As Object, e As MouseButtonEventArgs) Handles Me.PreviewMouseLeftButtonUp
-        If Not IsMouseDown Then Exit Sub
+        If Not IsMouseDown Then Return
         RaiseEvent Click(sender, e)
-        If e.Handled Then Exit Sub
+        If e.Handled Then Return
         '触发自定义事件
         If Not String.IsNullOrEmpty(EventType) Then
             ModEvent.TryStartEvent(EventType, EventData)
             e.Handled = True
         End If
-        If e.Handled Then Exit Sub
+        If e.Handled Then Return
         '实际的单击处理
         Select Case Type
             Case CheckType.Clickable
@@ -624,7 +637,7 @@ Public Class MyListItem
     Public Sub RefreshColor(sender As Object, e As EventArgs) Handles Me.MouseEnter, Me.MouseLeave, Me.MouseLeftButtonDown, Me.MouseLeftButtonUp
         '菜单虚拟化检测
         If ContentHandler IsNot Nothing Then
-            ContentHandler(sender, e)
+            ContentHandler.Invoke(sender, e)
             ContentHandler = Nothing
         End If
         '判断当前颜色
@@ -641,7 +654,7 @@ Public Class MyListItem
                 Time = 180
             End If
         End If
-        If StateLast = StateNew Then Exit Sub
+        If StateLast = StateNew Then Return
         StateLast = StateNew
         '触发颜色动画
         If IsLoaded AndAlso AniControlEnabled = 0 Then '防止默认属性变更触发动画
@@ -690,7 +703,7 @@ Public Class MyListItem
                     ColumnPaddingRight.Width = New GridLength(Math.Max(MinPaddingRight, 5 + Buttons.Count * 25))
                 End If
                 '由于鼠标已经移入，所以直接实例化 RectBack
-                RectBack.Background = ColorBg1
+                RectBack.Background = DynamicColors.ColorBg1Brush
                 RectBack.Opacity = 1
                 RectBack.RenderTransform = New ScaleTransform(1, 1)
                 Me.RenderTransform = New ScaleTransform(1, 1)
@@ -702,7 +715,7 @@ Public Class MyListItem
                 Me.RenderTransform = New ScaleTransform(1, 1)
                 If _RectBack IsNot Nothing Then
                     If IsScaleAnimationEnabled Then RectBack.RenderTransform = New ScaleTransform(0.75, 0.75)
-                    RectBack.Background = Color7
+                    RectBack.Background = DynamicColors.Color7Brush
                     RectBack.Opacity = 0
                 End If
             End If

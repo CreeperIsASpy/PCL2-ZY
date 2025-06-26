@@ -1,4 +1,4 @@
-﻿Public Class MyCompItem
+Public Class MyCompItem
 
 #Region "基础属性"
     Public Uuid As Integer = GetUuid()
@@ -19,7 +19,7 @@
             Return LabTitle.Text
         End Get
         Set(value As String)
-            If LabTitle.Text = value Then Exit Property
+            If LabTitle.Text = value Then Return
             LabTitle.Text = value
         End Set
     End Property
@@ -30,7 +30,7 @@
             Return If(LabTitleRaw?.Text, "")
         End Get
         Set(value As String)
-            If LabTitleRaw.Text = value Then Exit Property
+            If LabTitleRaw.Text = value Then Return
             LabTitleRaw.Text = value
             LabTitleRaw.Visibility = If(value = "", Visibility.Collapsed, Visibility.Visible)
         End Set
@@ -42,7 +42,7 @@
             Return LabInfo.Text
         End Get
         Set(value As String)
-            If LabInfo.Text = value Then Exit Property
+            If LabInfo.Text = value Then Return
             LabInfo.Text = value
         End Set
     End Property
@@ -68,12 +68,20 @@
             PanTags.Children.Clear()
             PanTags.Visibility = If(value.Any(), Visibility.Visible, Visibility.Collapsed)
             For Each TagText In value
-                Dim NewTag = GetObjectFromXML(
-                "<Border xmlns=""http://schemas.microsoft.com/winfx/2006/xaml/presentation""
-                         Background=""#11000000"" Padding=""3,1"" CornerRadius=""3"" Margin=""0,0,3,0"" 
-                         SnapsToDevicePixels=""True"" UseLayoutRounding=""False"">
-                   <TextBlock Text=""" & TagText & """ Foreground=""#868686"" FontSize=""11"" />
-                </Border>")
+                Dim NewTag As New Border With {
+                    .Background = New SolidColorBrush(Color.FromArgb(17, 0, 0, 0)),
+                    .Padding = New Thickness(3, 1, 3, 1),
+                    .CornerRadius = New CornerRadius(3),
+                    .Margin = New Thickness(0, 0, 3, 0),
+                    .SnapsToDevicePixels = True,
+                    .UseLayoutRounding = False
+                }
+                Dim TagTextBlock As New TextBlock With {
+                    .Text = TagText,
+                    .Foreground = New SolidColorBrush(Color.FromRgb(134, 134, 134)),
+                    .FontSize = 11
+                }
+                NewTag.Child = TagTextBlock
                 PanTags.Children.Add(NewTag)
             Next
         End Set
@@ -88,7 +96,7 @@
     Private Sub Button_MouseUp(sender As Object, e As MouseButtonEventArgs) Handles Me.PreviewMouseLeftButtonUp
         If IsMouseDown Then
             RaiseEvent Click(sender, e)
-            If e.Handled Then Exit Sub
+            If e.Handled Then Return
             Log("[Control] 按下资源工程列表项：" & LabTitle.Text)
         End If
     End Sub
@@ -174,7 +182,7 @@
                 SetRowSpan(Rect, 999)
                 Children.Insert(0, Rect)
                 _RectBack = Rect
-                '<!--<Border x:Name = "RectBack" CornerRadius="3" RenderTransformOrigin="0.5,0.5" SnapsToDevicePixels="True" 
+                '<!--<corelocal:BlurBorder x:Name = "RectBack" CornerRadius="3" RenderTransformOrigin="0.5,0.5" SnapsToDevicePixels="True" 
                 'IsHitTestVisible = "False" Opacity="0" BorderThickness="1" 
                 'Grid.ColumnSpan = "4" Background="{DynamicResource ColorBrush7}" BorderBrush="{DynamicResource ColorBrush6}"/>-->
             End If
@@ -190,7 +198,7 @@
     ''' </summary>
     Public Property CanInteraction As Boolean = True
     Public Sub RefreshColor(sender As Object, e As EventArgs) Handles Me.MouseEnter, Me.MouseLeave, Me.MouseLeftButtonDown, Me.MouseLeftButtonUp
-        If Not CanInteraction Then Exit Sub
+        If Not CanInteraction Then Return
         '判断当前颜色
         Dim StateNew As String, Time As Integer
         If IsMouseOver Then
@@ -205,7 +213,7 @@
             StateNew = "Idle"
             Time = 180
         End If
-        If StateLast = StateNew Then Exit Sub
+        If StateLast = StateNew Then Return
         StateLast = StateNew
         '触发颜色动画
         If IsLoaded AndAlso AniControlEnabled = 0 Then '防止默认属性变更触发动画

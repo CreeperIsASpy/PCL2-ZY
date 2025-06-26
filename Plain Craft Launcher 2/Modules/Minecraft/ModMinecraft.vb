@@ -127,7 +127,7 @@ Public Module ModMinecraft
     ''' </summary>
     Public Sub McFolderLauncherProfilesJsonCreate(Folder As String)
         Try
-            If File.Exists(Folder & "launcher_profiles.json") Then Exit Sub
+            If File.Exists(Folder & "launcher_profiles.json") Then Return
             Dim ResultJson As String =
 "{
     ""profiles"":  {
@@ -165,12 +165,12 @@ Public Module ModMinecraft
             Return _McVersionCurrent
         End Get
         Set(value As McVersion)
-            If ReferenceEquals(_McVersionLast, value) Then Exit Property
+            If ReferenceEquals(_McVersionLast, value) Then Return
             _McVersionCurrent = value '由于有可能是 Nothing，导致无法初始化，才得这样弄一圈
             _McVersionLast = value
-            If value Is Nothing Then Exit Property
+            If value Is Nothing Then Return
             '重置缓存的 Mod 文件夹
-            PageDownloadCompDetail.CachedFolder = Nothing
+            PageDownloadCompDetail.CachedFolder.Clear()
         End Set
     End Property
 
@@ -186,6 +186,7 @@ Public Module ModMinecraft
         Public ReadOnly Property PathIndie As String
             Get
                 If Setup.IsUnset("VersionArgumentIndieV2", Version:=Me) Then
+                    If Not IsLoaded Then Load()
                     '决定该版本是否应该被隔离
                     Dim ShouldBeIndie =
                     Function() As Boolean
@@ -202,17 +203,17 @@ Public Module ModMinecraft
                             Return True
                         End If
                         '根据全局的默认设置决定是否隔离
-                        Log($"[Minecraft] 版本隔离初始化（{Name}）：从全局默认设置中（{Setup.Get("LaunchArgumentIndieV2")}）判断")
-                        Dim IsRelease As Boolean = State = McVersionState.Fool OrElse State = McVersionState.Old OrElse State = McVersionState.Snapshot
+                        Dim IsRelease As Boolean = State <> McVersionState.Fool AndAlso State <> McVersionState.Old AndAlso State <> McVersionState.Snapshot
+                        Log($"[Minecraft] 版本隔离初始化（{Name}）：从全局默认设置中（{Setup.Get("LaunchArgumentIndieV2")}）判断，State {GetStringFromEnum(State)}，IsRelease {IsRelease}，Modable {Modable}")
                         Select Case Setup.Get("LaunchArgumentIndieV2")
                             Case 0 '关闭
                                 Return False
                             Case 1 '仅隔离可安装 Mod 的版本
                                 Return Version.HasLabyMod OrElse Modable
                             Case 2 '仅隔离非正式版
-                                Return IsRelease
+                                Return Not IsRelease
                             Case 3 '隔离非正式版与可安装 Mod 的版本
-                                Return Version.HasLabyMod OrElse Modable OrElse IsRelease
+                                Return Version.HasLabyMod OrElse Modable OrElse Not IsRelease
                             Case Else '隔离所有版本
                                 Return True
                         End Select
@@ -261,10 +262,7 @@ Public Module ModMinecraft
         Public ReadOnly Property Modable As Boolean
             Get
                 If Not IsLoaded Then Load()
-                '判断该 LabyMod 是否支持安装 Fabric Mod
-                Dim ModdedLabyMod = False
-                If Version.HasLabyMod AndAlso Directory.Exists(PathIndie & "labymod-neo\fabric\" & Version.McName) Then ModdedLabyMod = True
-                Return Version.HasFabric OrElse Version.HasQuilt OrElse Version.HasForge OrElse Version.HasLiteLoader OrElse Version.HasNeoForge OrElse Version.HasCleanroom OrElse ModdedLabyMod OrElse
+                Return Version.HasFabric OrElse Version.HasQuilt OrElse Version.HasForge OrElse Version.HasLiteLoader OrElse Version.HasNeoForge OrElse Version.HasCleanroom OrElse
                     DisplayType = McVersionCardType.API '#223
             End Get
         End Property
@@ -1218,7 +1216,7 @@ Reload:
 
             '改变当前选择的版本
 OnLoaded:
-            If Loader.IsAborted Then Exit Sub
+            If Loader.IsAborted Then Return
             If McVersionList.Any(Function(v) v.Key <> McVersionCardType.Error) Then
                 '尝试读取已储存的选择
                 Dim SavedSelection As String = ReadIni(Path & "PCL.ini", "Version")
@@ -1230,7 +1228,7 @@ OnLoaded:
                                 McVersionCurrent = Version
                                 Setup.Set("LaunchVersionSelect", McVersionCurrent.Name)
                                 Log("[Minecraft] 选择该文件夹储存的 Minecraft 版本：" & McVersionCurrent.Path)
-                                Exit Sub
+                                Return
                             End If
                         Next
                     Next
@@ -1366,7 +1364,11 @@ OnLoaded:
             If File.Exists(VersionFolder & ".pclignore") Then
                 If IsFirstMcVersionListLoad Then
                     Log("[Minecraft] 清理残留的忽略项目：" & VersionFolder) '#2781
-                    File.Delete(VersionFolder & ".pclignore")
+                    Try
+                        File.Delete(VersionFolder & ".pclignore")
+                    Catch ex As Exception
+                        Log(ex, "清理残留的忽略项目失败（" & VersionFolder & "）", LogLevel.Hint)
+                    End Try
                 Else
                     Log("[Minecraft] 跳过要求忽略的项目：" & VersionFolder)
                     Continue For
@@ -1690,7 +1692,7 @@ OnLoaded:
         Try
             For Each SkinProperty In GetJson(SkinString)("properties")
                 If SkinProperty("name") = "textures" Then
-                    SkinValue = SkinProperty("value")
+                    SkinValue = SkinProperty("value").ToString()
                     Exit Try
                 End If
             Next
@@ -1704,7 +1706,7 @@ OnLoaded:
         If SkinJson("textures") Is Nothing OrElse SkinJson("textures")("skin") Is Nothing OrElse SkinJson("textures")("skin")("url") Is Nothing Then
             Throw New Exception("用户未设置自定义皮肤")
         Else
-            SkinValue = SkinJson("textures")("skin")("url").ToString
+            SkinValue = SkinJson("textures")("skin")("url").ToString.Replace("http:", "https:")
         End If
         '保存缓存
         WriteIni(PathTemp & "Cache\Skin\Index" & Type & ".ini", Uuid, SkinValue)
@@ -1721,7 +1723,7 @@ OnLoaded:
         Dim FileAddress As String = PathTemp & "Cache\Skin\" & GetHash(Address) & ".png"
         SyncLock McSkinDownloadLock
             If Not File.Exists(FileAddress) Then
-                NetDownloadByClient(Address, FileAddress & NetDownloadEnd)
+                NetDownloadByClient(Address, FileAddress & NetDownloadEnd).GetAwaiter().GetResult()
                 File.Delete(FileAddress)
                 FileSystem.Rename(FileAddress & NetDownloadEnd, FileAddress)
                 Log("[Minecraft] 皮肤下载成功：" & FileAddress)
@@ -2059,6 +2061,32 @@ OnLoaded:
             End If
         End If
 
+        'LabyMod Assets 文件
+        If Version.Version.HasLabyMod Then
+            Try
+                Dim ChannelType = Version.JsonObject("labymod_data")("channelType").ToString()
+                Directory.CreateDirectory($"{Version.Path}labymod-neo\libraries")
+                Log("[Minecraft] 开始获取 LabyMod 信息")
+                Dim labyManifest As JObject = NetGetCodeByRequestRetry($"https://releases.r2.labymod.net/api/v1/manifest/{ChannelType}/latest.json", IsJson:=True)
+                Dim LabyAssets As JObject = labyManifest("assets")
+                Dim LabyModCommitRef As String = labyManifest("commitReference").ToString()
+                For Each Asset In LabyAssets
+                    Dim AssetName As String = Asset.Key
+                    Dim AssetSHA1 As String = Asset.Value.ToString()
+                    Dim AssetPath As String = $"{Version.Path}labymod-neo\assets\{AssetName}.jar"
+                    Dim AssetUrl As String = $"https://releases.r2.labymod.net/api/v1/download/assets/labymod4/{ChannelType}/{LabyModCommitRef}/{AssetName}/{AssetSHA1}.jar"
+                    Dim Checker = New FileChecker(Hash:=AssetSHA1)
+                    If Checker.Check(AssetPath) Is Nothing Then Continue For
+                    Result.Add(New NetFile(
+                           {AssetUrl},
+                           AssetPath,
+                           Checker))
+                Next
+            Catch ex As Exception
+                Log(ex, "获取 LabyMod 信息失败，跳过检查")
+            End Try
+        End If
+
         '跳过校验
         If ShouldIgnoreFileCheck(Version) Then
             Log("[Minecraft] 用户要求尽量忽略文件检查，这可能会保留有误的文件")
@@ -2120,6 +2148,11 @@ OnLoaded:
                 OptiFineBase = "/maven/com/optifine/" & OptiFineBase
                 If OptiFineBase.Contains("_pre") Then OptiFineBase = OptiFineBase.Replace("com/optifine/", "com/optifine/preview_")
                 Urls.Add("https://bmclapi2.bangbang93.com" & OptiFineBase)
+            ElseIf Token.Name.Contains("LabyMod") Then
+                'LabyMod 只有一个下载源
+                Urls.Add(Token.Url)
+                Log($"[Download] 获取到 LabyMod 主要库文件的 Size = {Token.Size},SHA1 = {Token.SHA1}，由于 LabyMod 乱写 Size，已忽略 Size")
+                Checker = New FileChecker(Hash:=Token.SHA1) '只校验 SHA1
             ElseIf Urls.Count <= 2 Then
                 '普通文件
                 Urls.AddRange(DlSourceLibraryGet("https://libraries.minecraft.net" & Token.LocalPath.Replace(CustomMcFolder & "libraries", "").Replace("\", "/")))
@@ -2332,7 +2365,7 @@ OnLoaded:
                 End If
             Next
             '进行提示
-            If Version Is Nothing Then Exit Sub
+            If Version Is Nothing Then Return
             Dim Time As Date = Version("releaseTime")
             Dim MsgBoxText As String = $"新版本：{VersionName}{vbCrLf}" &
                 If((Date.Now - Time).TotalDays > 1, "更新时间：" & Time.ToString, "更新于：" & GetTimeSpanString(Time - Date.Now, False))
@@ -2437,26 +2470,33 @@ NextEntry:
     End Function
 
     ''' <summary>
-    ''' 为邮箱地址或手机号账号进行部分打码。
+    ''' 打码字符串中的 AccessToken。
     ''' </summary>
-    Public Function AccountFilter(Account As String) As String
-        If Account.Contains("@") Then
-            '是邮箱
-            Dim Splits = Account.Split("@")
-            'If Splits(0).Count >= 6 Then
-            '    '前半部分至少 6 位，屏蔽后 4 位
-            '    Return Mid(Splits(0), 1, Splits(0).Count - 4) & "****" & "@" & Splits(1)
-            'Else
-            '前半部分不到 6 位，返回全 *
-            Return "".PadLeft(Splits(0).Count, "*") & "@" & Splits(1)
-            'End If
-        ElseIf Account.Count >= 6 Then
-            '至少 6 位，屏蔽后 4 位
-            Return Mid(Account, 1, Account.Count - 4) & "****"
-        Else
-            '不到 6 位，返回全 *
-            Return "".PadLeft(Account.Count, "*")
+    Public Function FilterAccessToken(Raw As String, FilterChar As Char) As String
+        '打码 "accessToken " 后的内容
+        If Raw.Contains("accessToken ") Then
+            For Each Token In RegexSearch(Raw, "(?<=accessToken ([^ ]{5}))[^ ]+(?=[^ ]{5})")
+                Raw = Raw.Replace(Token, New String(FilterChar, Token.Count))
+            Next
         End If
+        '打码当前登录的结果
+        Dim AccessToken As String = McLoginLoader.Output.AccessToken
+        If AccessToken IsNot Nothing AndAlso AccessToken.Length >= 10 AndAlso Raw.ContainsF(AccessToken, True) AndAlso
+            McLoginLoader.Output.Uuid <> McLoginLoader.Output.AccessToken Then 'UUID 和 AccessToken 一样则不打码
+            Raw = Raw.Replace(AccessToken, Left(AccessToken, 5) & New String(FilterChar, AccessToken.Length - 10) & Right(AccessToken, 5))
+        End If
+        Return Raw
+    End Function
+    ''' <summary>
+    ''' 打码字符串中的 Windows 用户名。
+    ''' </summary>
+    Public Function FilterUserName(Raw As String, FilterChar As Char) As String
+        If Raw.Contains(":\Users\") Then
+            For Each Token In RegexSearch(Raw, "(?<=:\\Users\\)[^\\]+")
+                Raw = Raw.Replace(Token, New String(FilterChar, Token.Count))
+            Next
+        End If
+        Return Raw
     End Function
 
 End Module

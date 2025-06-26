@@ -39,7 +39,7 @@ Public Class PageComp
         Set(Value As String)
             If _TypeNameSpaced = Value Then Return
             _TypeNameSpaced = Value
-            PanAlways.Title = $"搜索{Value}"
+            PanSearchBox.HintText = $"搜索{Value} 在输入框中按下 Enter 以进行搜索"
             Load.Text = $"正在获取{Value}列表"
         End Set
     End Property
@@ -117,10 +117,10 @@ Public Class PageComp
             End If
         End If
         With Request
-            .SearchText = TextSearchName.Text
+            .SearchText = PanSearchBox.Text
             .GameVersion = GameVersion
             .Tag = ComboSearchTag.SelectedItem.Tag
-            .ModLoader = ModLoader
+            .ModLoader = If(PageType = CompType.Mod, Val(ComboSearchLoader.SelectedItem.Tag), CompLoaderType.Any)
             .Source = CType(Val(ComboSearchSource.SelectedItem.Tag), CompSourceType)
         End With
         Return Request
@@ -188,7 +188,6 @@ Public Class PageComp
     End Sub
 
     '切换页码
-
     Private Sub BtnPageFirst_Click(sender As Object, e As RoutedEventArgs) Handles BtnPageFirst.Click
         ChangePage(0)
     End Sub
@@ -214,18 +213,18 @@ Public Class PageComp
 #Region "搜索"
 
     '搜索按钮
-    Private Sub StartNewSearch() Handles BtnSearchRun.Click
+    Private Sub StartNewSearch()
         Page = 0
         If Loader.ShouldStart(LoaderInput()) Then Storage = New CompProjectStorage '避免连续搜索两次使得 CompProjectStorage 引用丢失（#1311）
         Loader.Start()
     End Sub
-    Private Sub EnterTrigger(sender As Object, e As KeyEventArgs) Handles TextSearchName.KeyDown, TextSearchVersion.KeyDown
+    Private Sub EnterTrigger(sender As Object, e As KeyEventArgs) Handles PanSearchBox.KeyDown, TextSearchVersion.KeyDown
         If e.Key = Key.Enter Then StartNewSearch()
     End Sub
 
     '重置按钮
     Private Sub ResetFilter() Handles BtnSearchReset.Click
-        TextSearchName.Text = ""
+        PanSearchBox.Text = ""
         TextSearchVersion.Text = "全部 (也可自行输入)"
         TextSearchVersion.SelectedIndex = 0
         ComboSearchSource.SelectedIndex = 0
